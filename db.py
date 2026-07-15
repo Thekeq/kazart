@@ -162,6 +162,7 @@ class DataBase:
                         best_daily_streak INTEGER NOT NULL DEFAULT 0,
                         quest_notify_period TEXT,
                         last_wheel_at TEXT,
+                        source TEXT,
                         premium_until TEXT,
                         season_pass_until TEXT,
                         active_cosmetic TEXT,
@@ -196,6 +197,7 @@ class DataBase:
                 self._add_column(conn, user_columns, "users", "best_daily_streak", "INTEGER NOT NULL DEFAULT 0")
                 self._add_column(conn, user_columns, "users", "quest_notify_period", "TEXT")
                 self._add_column(conn, user_columns, "users", "last_wheel_at", "TEXT")
+                self._add_column(conn, user_columns, "users", "source", "TEXT")
                 self._add_column(conn, user_columns, "users", "premium_until", "TEXT")
                 self._add_column(conn, user_columns, "users", "season_pass_until", "TEXT")
                 self._add_column(conn, user_columns, "users", "active_cosmetic", "TEXT")
@@ -323,6 +325,30 @@ class DataBase:
                     claimed_at TEXT NOT NULL,
                     PRIMARY KEY (telegram_id, season_key, level, tier),
                     FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS promo_codes (
+                    code TEXT PRIMARY KEY,
+                    reward_kind TEXT NOT NULL,
+                    reward_value INTEGER NOT NULL,
+                    max_activations INTEGER NOT NULL DEFAULT 0,
+                    expires_at TEXT,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS promo_activations (
+                    code TEXT NOT NULL,
+                    telegram_id INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (code, telegram_id),
+                    FOREIGN KEY (code) REFERENCES promo_codes(code)
+                );
+
+                CREATE TABLE IF NOT EXISTS campaigns (
+                    source TEXT PRIMARY KEY,
+                    reward_coins INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL
                 );
                 """
             )
@@ -571,6 +597,239 @@ class DataBase:
                 ),
             ).fetchall()
         return [int(row[0]) for row in rows if int(row[0]) not in excluded]
+
+    # --- Promo codes ---
+
+    @staticmethod
+    def _normalize_promo_code(code: Any) -> str:
+        value = "".join(ch for ch in str(code or "").strip().upper() if ch.isalnum() or ch in "-_")
+        if not value or len(value) > 32:
+            raise BalanceError("Promo code must be 1-32 letters or digits")
+        return value
+
+    def create_promo_code(
+        self,
+        code: Any,
+        reward_kind: str,
+        reward_value: Any,
+        max_activations: Any = 0,
+        expires_days: Any = None,
+    ) -> dict[str, Any]:
+        if reward_kind not in {"coins", "premium", "season_pass"}:
+            raise BalanceError("Unknown promo reward kind")
+        if str(code or "").strip():
+            code = self._normalize_promo_code(code)
+        else:
+            alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+            code = "".join(secrets.choice(alphabet) for _ in range(8))
+        try:
+            value = int(reward_value)
+            max_uses = max(0, int(max_activations or 0))
+            days = int(expires_days) if expires_days not in (None, "") else None
+        except (TypeError, ValueError) as exc:
+            raise BalanceError("Bad promo numbers") from exc
+        if value < 1:
+            raise BalanceError("Reward value must be positive")
+        if reward_kind != "coins" and value > 3650:
+            raise BalanceError("Days must be at most 3650")
+        now_dt = datetime.now(timezone.utc)
+        expires_at = (now_dt + timedelta(days=days)).isoformat(timespec="seconds") if days else None
+        with self.transaction() as conn:
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO promo_codes (code, reward_kind, reward_value, max_activations, expires_at, is_active, created_at)
+                    VALUES (?, ?, ?, ?, ?, 1, ?)
+                    """,
+                    (code, reward_kind, value, max_uses, expires_at, now_dt.isoformat(timespec="seconds")),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise BalanceError("Promo code already exists") from exc
+        return {
+            "code": code,
+            "reward_kind": reward_kind,
+            "reward_value": value,
+            "max_activations": max_uses,
+            "expires_at": expires_at,
+        }
+
+    def list_promo_codes(self) -> list[dict[str, Any]]:
+        with self.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT p.*, COUNT(a.telegram_id) AS used
+                FROM promo_codes p
+                LEFT JOIN promo_activations a ON a.code = p.code
+                GROUP BY p.code
+                ORDER BY p.created_at DESC
+                """
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def set_promo_active(self, code: str, active: bool) -> bool:
+        with self.transaction() as conn:
+            cursor = conn.execute(
+                "UPDATE promo_codes SET is_active = ? WHERE code = ?",
+                (1 if active else 0, self._normalize_promo_code(code)),
+            )
+            return cursor.rowcount > 0
+
+    def redeem_promo_code(self, telegram_id: int, code: Any) -> dict[str, Any]:
+        code = self._normalize_promo_code(code)
+        now_dt = datetime.now(timezone.utc)
+        # Read-only fast path: this runs on every request for deep-link sessions,
+        # so it must not open a write transaction for known-settled outcomes.
+        with self.connection() as conn:
+            if conn.execute(
+                "SELECT 1 FROM promo_activations WHERE code = ? AND telegram_id = ?",
+                (code, telegram_id),
+            ).fetchone():
+                raise BalanceError("Promo code already used")
+
+        with self.user_lock(telegram_id), self.transaction() as conn:
+            user = conn.execute("SELECT * FROM users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            if user is None:
+                raise BalanceError("User is not registered")
+            promo = conn.execute("SELECT * FROM promo_codes WHERE code = ?", (code,)).fetchone()
+            if promo is None or not int(promo["is_active"]):
+                raise BalanceError("Promo code not found")
+            expires = self.parse_time(promo["expires_at"])
+            if expires is not None and now_dt >= expires:
+                raise BalanceError("Promo code expired")
+            used = int(conn.execute(
+                "SELECT COUNT(*) FROM promo_activations WHERE code = ?", (code,)
+            ).fetchone()[0])
+            if int(promo["max_activations"]) > 0 and used >= int(promo["max_activations"]):
+                raise BalanceError("Promo code activation limit reached")
+            try:
+                conn.execute(
+                    "INSERT INTO promo_activations (code, telegram_id, created_at) VALUES (?, ?, ?)",
+                    (code, telegram_id, now_dt.isoformat(timespec="seconds")),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise BalanceError("Promo code already used") from exc
+
+            kind = promo["reward_kind"]
+            value = int(promo["reward_value"])
+            now = now_dt.isoformat(timespec="seconds")
+            result: dict[str, Any] = {"applied": True, "code": code, "reward_kind": kind, "reward_value": value}
+            if kind == "coins":
+                balance_before = int(user["balance"])
+                balance_after = balance_before + value
+                conn.execute(
+                    "UPDATE users SET balance = ?, updated_at = ?, last_seen_at = ? WHERE telegram_id = ?",
+                    (balance_after, now, now, telegram_id),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO balance_events (
+                        telegram_id, amount, reason, balance_before, balance_after, meta_json, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (telegram_id, value, "promo_code", balance_before, balance_after,
+                     json.dumps({"code": code}, ensure_ascii=False), now),
+                )
+                result["balance_after"] = balance_after
+            else:
+                column = "premium_until" if kind == "premium" else "season_pass_until"
+                until = self._extend_until(user[column], now_dt, timedelta(days=value))
+                conn.execute(
+                    f"UPDATE users SET {column} = ?, updated_at = ?, last_seen_at = ? WHERE telegram_id = ?",
+                    (until.isoformat(timespec="seconds"), now, now, telegram_id),
+                )
+                result["until"] = until.isoformat(timespec="seconds")
+            return result
+
+    # --- Ad campaigns (source links) ---
+
+    @staticmethod
+    def _normalize_source(source: Any) -> str:
+        value = "".join(ch for ch in str(source or "").strip().lower() if ch.isalnum() or ch in "-_")
+        if not value or len(value) > 32:
+            raise BalanceError("Source must be 1-32 letters or digits")
+        return value
+
+    def create_campaign(self, source: Any, reward_coins: Any = 0) -> dict[str, Any]:
+        source = self._normalize_source(source)
+        try:
+            reward = max(0, int(reward_coins or 0))
+        except (TypeError, ValueError) as exc:
+            raise BalanceError("Bad reward amount") from exc
+        with self.transaction() as conn:
+            try:
+                conn.execute(
+                    "INSERT INTO campaigns (source, reward_coins, created_at) VALUES (?, ?, ?)",
+                    (source, reward, self.now()),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise BalanceError("Campaign already exists") from exc
+        return {"source": source, "reward_coins": reward}
+
+    def list_campaigns(self) -> list[dict[str, Any]]:
+        week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat(timespec="seconds")
+        with self.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT c.source, c.reward_coins, c.created_at,
+                       COUNT(u.telegram_id) AS users_count,
+                       COALESCE(SUM(CASE WHEN u.last_seen_at >= ? THEN 1 ELSE 0 END), 0) AS active_7d
+                FROM campaigns c
+                LEFT JOIN users u ON u.source = c.source
+                GROUP BY c.source
+                ORDER BY c.created_at DESC
+                """,
+                (week_ago,),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def apply_source(self, telegram_id: int, source: Any) -> dict[str, Any]:
+        source = self._normalize_source(source)
+        user = self.get_user(telegram_id)
+        if user is None:
+            raise BalanceError("User is not registered")
+        if user.get("source"):
+            return {"applied": False, "reason": "already_set"}
+
+        with self.user_lock(telegram_id), self.transaction() as conn:
+            row = conn.execute(
+                "SELECT u.source, u.balance, (SELECT COUNT(*) FROM games_log g WHERE g.telegram_id = u.telegram_id) AS games "
+                "FROM users u WHERE u.telegram_id = ?",
+                (telegram_id,),
+            ).fetchone()
+            if row is None or row["source"]:
+                return {"applied": False, "reason": "already_set"}
+            # Attribute only users who have not played yet, so an old active user
+            # clicking an ad link does not pollute campaign stats or farm rewards.
+            if int(row["games"]) > 0:
+                return {"applied": False, "reason": "existing_player"}
+            now = self.now()
+            conn.execute(
+                "UPDATE users SET source = ?, updated_at = ? WHERE telegram_id = ?",
+                (source, now, telegram_id),
+            )
+            campaign = conn.execute("SELECT * FROM campaigns WHERE source = ?", (source,)).fetchone()
+            reward = int(campaign["reward_coins"]) if campaign else 0
+            result: dict[str, Any] = {"applied": True, "source": source, "reward_coins": reward}
+            if reward > 0:
+                balance_before = int(row["balance"])
+                balance_after = balance_before + reward
+                conn.execute(
+                    "UPDATE users SET balance = ? WHERE telegram_id = ?",
+                    (balance_after, telegram_id),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO balance_events (
+                        telegram_id, amount, reason, balance_before, balance_after, meta_json, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (telegram_id, reward, "campaign_reward", balance_before, balance_after,
+                     json.dumps({"source": source}, ensure_ascii=False), now),
+                )
+                result["balance_after"] = balance_after
+            return result
 
     def quests_ready_notification(self, telegram_id: int) -> int | None:
         """Once per day: number of completed-but-unclaimed quests when >= 3, else None."""

@@ -1958,9 +1958,9 @@ body.cosmetic-gold-ball .ball {
 }
 
 .season-claim.premium.ready {
-  border-color: rgba(244, 201, 93, .62);
-  background: rgba(244, 201, 93, .16);
-  color: var(--gold);
+  border-color: rgba(168, 130, 255, .62);
+  background: rgba(168, 130, 255, .16);
+  color: #cdb8ff;
 }
 
 .season-claim.claimed {
@@ -1976,7 +1976,7 @@ body.cosmetic-gold-ball .ball {
 }
 
 .season-claim.premium.locked {
-  color: var(--gold);
+  color: #cdb8ff;
 }
 
 @keyframes seasonReady {

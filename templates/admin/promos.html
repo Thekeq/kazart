@@ -1,0 +1,84 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<h1>Promos &amp; Links</h1>
+
+<h2>Create promo code</h2>
+<form class="panel" method="post" action="{{ url_for('admin.promo_create') }}">
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  <label>Code (leave empty to auto-generate)</label>
+  <input name="code" placeholder="SUMMER2026" maxlength="32">
+  <label>Reward</label>
+  <select name="reward_kind">
+    <option value="coins">Coins</option>
+    <option value="premium">Premium (days)</option>
+    <option value="season_pass">Season Pass (days)</option>
+  </select>
+  <label>Value (coins amount or days)</label>
+  <input name="reward_value" type="number" min="1" value="1000" required>
+  <label>Max activations (0 = unlimited)</label>
+  <input name="max_activations" type="number" min="0" value="0">
+  <label>Expires in days (empty = never)</label>
+  <input name="expires_days" type="number" min="1" placeholder="30">
+  <p><button class="btn" type="submit">Create promo</button></p>
+</form>
+
+<h2>Promo codes</h2>
+<table>
+  <thead>
+    <tr><th>Code</th><th>Reward</th><th>Used / Max</th><th>Expires</th><th>Status</th><th>Link</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for promo in promos %}
+    <tr>
+      <td><strong>{{ promo.code }}</strong></td>
+      <td>{{ promo.reward_value }} {{ coin_name if promo.reward_kind == 'coins' else 'days ' + promo.reward_kind }}</td>
+      <td>{{ promo.used }} / {{ promo.max_activations or '∞' }}</td>
+      <td>{{ promo.expires_at or '—' }}</td>
+      <td>{{ 'active' if promo.is_active else 'disabled' }}</td>
+      <td><code>{{ deep_link('promo_' ~ promo.code) }}</code></td>
+      <td>
+        <form method="post" action="{{ url_for('admin.promo_toggle', code=promo.code) }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="active" value="{{ '0' if promo.is_active else '1' }}">
+          <button class="btn secondary" type="submit">{{ 'Disable' if promo.is_active else 'Enable' }}</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="muted">No promo codes yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Create source link (ad campaign)</h2>
+<form class="panel" method="post" action="{{ url_for('admin.campaign_create') }}">
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  <label>Source name (a-z, 0-9, - _)</label>
+  <input name="source" placeholder="nzdiary" maxlength="32" required>
+  <label>Signup reward in {{ coin_name }} (0 = track only, no reward)</label>
+  <input name="reward_coins" type="number" min="0" value="0">
+  <p><button class="btn" type="submit">Create link</button></p>
+</form>
+
+<h2>Source links</h2>
+<table>
+  <thead>
+    <tr><th>Source</th><th>Signup reward</th><th>Users</th><th>Active 7d</th><th>Created</th><th>Link</th></tr>
+  </thead>
+  <tbody>
+    {% for campaign in campaigns %}
+    <tr>
+      <td><strong>{{ campaign.source }}</strong></td>
+      <td>{{ campaign.reward_coins or '—' }}</td>
+      <td>{{ campaign.users_count }}</td>
+      <td>{{ campaign.active_7d }}</td>
+      <td>{{ campaign.created_at }}</td>
+      <td><code>{{ deep_link('src_' ~ campaign.source) }}</code></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="muted">No source links yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p class="muted">Only users who join and have not played any game yet are attributed to a source, so existing players cannot farm signup rewards.</p>
+{% endblock %}

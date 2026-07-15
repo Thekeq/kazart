@@ -319,6 +319,13 @@
         </label>
       </div>
       <div class="invite-panel compact-invite">
+        <strong data-i18n="promo.title">Промокод</strong>
+        <p data-i18n="promo.desc">Введи промокод и получи награду.</p>
+        <input id="promoCodeInput" maxlength="32" autocomplete="off" spellcheck="false" placeholder="PROMO2026">
+        <button id="promoRedeem" class="primary-action compact-action" type="button" data-i18n="promo.apply">Активировать</button>
+        <span id="promoResult" class="result-line"></span>
+      </div>
+      <div class="invite-panel compact-invite">
         <strong data-i18n="invite.title">Invite friends</strong>
         <p data-i18n="invite.safeDesc">Referral reward is credited after the invited user accepts the virtual-only rules.</p>
         <input id="profileInviteLink" readonly value="">

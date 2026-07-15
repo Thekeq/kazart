@@ -658,5 +658,104 @@ class RetentionMetricsTests(unittest.TestCase):
         self.assertIn("games_per_active_24h", stats)
 
 
+class PromoCodeTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.db = DataBase(":memory:")
+        self.db.ensure_user(tg_user(2101, "promo"))
+        self.db.ensure_user(tg_user(2102, "promo2"))
+
+    def tearDown(self) -> None:
+        self.db.close()
+
+    def test_coins_promo_credits_once_per_user(self) -> None:
+        promo = self.db.create_promo_code("WELCOME", "coins", 500)
+
+        result = self.db.redeem_promo_code(2101, "welcome")
+        self.assertTrue(result["applied"])
+        self.assertEqual(self.db.get_user(2101)["balance"], 1500)
+
+        with self.assertRaises(BalanceError):
+            self.db.redeem_promo_code(2101, promo["code"])
+        self.assertEqual(self.db.get_user(2101)["balance"], 1500)
+
+    def test_activation_limit_and_disable(self) -> None:
+        self.db.create_promo_code("LIMITED", "coins", 100, max_activations=1)
+        self.db.redeem_promo_code(2101, "LIMITED")
+
+        with self.assertRaises(BalanceError):
+            self.db.redeem_promo_code(2102, "LIMITED")
+
+        self.db.create_promo_code("OFF", "coins", 100)
+        self.db.set_promo_active("OFF", False)
+        with self.assertRaises(BalanceError):
+            self.db.redeem_promo_code(2102, "OFF")
+
+    def test_expired_promo_rejected(self) -> None:
+        self.db.create_promo_code("OLD", "coins", 100, expires_days=1)
+        with self.db.transaction() as conn:
+            conn.execute("UPDATE promo_codes SET expires_at = ? WHERE code = 'OLD'", (iso_ago(days=1),))
+
+        with self.assertRaises(BalanceError):
+            self.db.redeem_promo_code(2101, "OLD")
+
+    def test_premium_promo_extends_entitlement(self) -> None:
+        self.db.create_promo_code("VIP", "premium", 7)
+
+        result = self.db.redeem_promo_code(2101, "VIP")
+
+        self.assertTrue(result["applied"])
+        until = self.db.parse_time(self.db.get_user(2101)["premium_until"])
+        self.assertIsNotNone(until)
+        self.assertGreater(until, datetime.now(timezone.utc) + timedelta(days=6))
+
+
+class CampaignTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.db = DataBase(":memory:")
+        self.db.ensure_user(tg_user(2201, "fresh"))
+        self.db.ensure_user(tg_user(2202, "veteran"))
+
+    def tearDown(self) -> None:
+        self.db.close()
+
+    def test_source_set_once_with_reward(self) -> None:
+        self.db.create_campaign("nzdiary", reward_coins=300)
+
+        result = self.db.apply_source(2201, "nzdiary")
+        self.assertTrue(result["applied"])
+        user = self.db.get_user(2201)
+        self.assertEqual(user["source"], "nzdiary")
+        self.assertEqual(user["balance"], 1300)
+
+        again = self.db.apply_source(2201, "other")
+        self.assertFalse(again["applied"])
+        self.assertEqual(self.db.get_user(2201)["source"], "nzdiary")
+
+    def test_existing_player_not_attributed(self) -> None:
+        self.db.create_campaign("ads", reward_coins=300)
+        self.db.record_game(2202, "dice", bet=10, multiplier=0.0, win_amount=0)
+
+        result = self.db.apply_source(2202, "ads")
+
+        self.assertFalse(result["applied"])
+        self.assertIsNone(self.db.get_user(2202)["source"])
+
+    def test_unknown_source_tracked_without_reward(self) -> None:
+        result = self.db.apply_source(2201, "organic")
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["reward_coins"], 0)
+        self.assertEqual(self.db.get_user(2201)["balance"], 1000)
+
+    def test_campaign_stats_count_users(self) -> None:
+        self.db.create_campaign("blog", reward_coins=0)
+        self.db.apply_source(2201, "blog")
+
+        rows = self.db.list_campaigns()
+
+        self.assertEqual(rows[0]["source"], "blog")
+        self.assertEqual(rows[0]["users_count"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

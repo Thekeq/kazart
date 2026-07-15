@@ -18,7 +18,7 @@
     table { width: 100%; min-width: 760px; border-collapse: collapse; overflow: hidden; }
     th, td { padding: 11px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 14px; vertical-align: top; overflow-wrap: anywhere; }
     th { background: #f9fafb; color: #4b5563; }
-    input, textarea { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; font: inherit; }
+    input, textarea, select { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; font: inherit; }
     textarea { min-height: 130px; resize: vertical; }
     label { display: block; margin: 14px 0 6px; font-weight: 600; }
     .btn { display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; padding: 10px 14px; background: #2563eb; color: #fff; text-decoration: none; cursor: pointer; font: inherit; }
@@ -64,6 +64,7 @@
     <a href="{{ url_for('admin.dashboard') }}">Dashboard</a>
     <a href="{{ url_for('admin.users') }}">Users</a>
     <a href="{{ url_for('admin.payments') }}">Payments</a>
+    <a href="{{ url_for('admin.promos') }}">Promos &amp; Links</a>
     <a href="{{ url_for('admin.broadcast_form') }}">Broadcast</a>
   </nav>
   {% if session.get('admin_id') %}

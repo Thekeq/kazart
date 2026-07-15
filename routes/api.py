@@ -78,6 +78,18 @@ def require_webapp_auth(view: Callable) -> Callable:
                 g.user = db.get_user(int(auth.user["id"])) or g.user
             except ValueError:
                 pass
+        elif start_param.startswith("promo_"):
+            try:
+                db.redeem_promo_code(int(auth.user["id"]), start_param.removeprefix("promo_"))
+                g.user = db.get_user(int(auth.user["id"])) or g.user
+            except BalanceError:
+                pass
+        elif start_param.startswith("src_") and not g.user.get("source"):
+            try:
+                db.apply_source(int(auth.user["id"]), start_param.removeprefix("src_"))
+                g.user = db.get_user(int(auth.user["id"])) or g.user
+            except BalanceError:
+                pass
         return view(*args, **kwargs)
 
     return wrapped
@@ -157,6 +169,18 @@ def me():
             "wheel": db.wheel_status(g.user["telegram_id"]),
         }
     )
+
+
+@api_bp.post("/promo/redeem")
+@require_webapp_auth
+@require_legal_acceptance
+@rate_limit("promo_redeem", "bonus_claim_limit", "bonus_claim_window_seconds")
+def promo_redeem():
+    try:
+        result = db.redeem_promo_code(g.user["telegram_id"], payload().get("code"))
+    except BalanceError as exc:
+        return fail(str(exc))
+    return ok({"promo": result, "user": db.get_user(g.user["telegram_id"])})
 
 
 @api_bp.post("/wheel/spin")

@@ -360,6 +360,71 @@ def refund_payment(charge_id: str):
     return redirect(url_for("admin.payments"))
 
 
+def _deep_link(payload: str) -> str:
+    from routes.api import _cached_bot_username
+
+    username = _cached_bot_username()
+    return f"https://t.me/{username}?start={payload}" if username else f"start={payload}"
+
+
+@admin_bp.get("/promos")
+@require_admin
+def promos():
+    return render_template(
+        "admin/promos.html",
+        promos=db.list_promo_codes(),
+        campaigns=db.list_campaigns(),
+        deep_link=_deep_link,
+        coin_name=COIN_NAME,
+    )
+
+
+@admin_bp.post("/promos/create")
+@require_admin
+def promo_create():
+    try:
+        result = db.create_promo_code(
+            code=request.form.get("code", ""),
+            reward_kind=request.form.get("reward_kind", "coins"),
+            reward_value=request.form.get("reward_value", "0"),
+            max_activations=request.form.get("max_activations", "0") or 0,
+            expires_days=request.form.get("expires_days", "") or None,
+        )
+    except BalanceError as exc:
+        flash(f"Promo creation failed: {exc}", "error")
+    else:
+        flash(f"Promo {result['code']} created.", "success")
+    return redirect(url_for("admin.promos"))
+
+
+@admin_bp.post("/promos/<code>/toggle")
+@require_admin
+def promo_toggle(code: str):
+    active = request.form.get("active") == "1"
+    try:
+        changed = db.set_promo_active(code, active)
+    except BalanceError as exc:
+        flash(str(exc), "error")
+    else:
+        flash("Promo updated." if changed else "Promo not found.", "success" if changed else "error")
+    return redirect(url_for("admin.promos"))
+
+
+@admin_bp.post("/campaigns/create")
+@require_admin
+def campaign_create():
+    try:
+        result = db.create_campaign(
+            source=request.form.get("source", ""),
+            reward_coins=request.form.get("reward_coins", "0") or 0,
+        )
+    except BalanceError as exc:
+        flash(f"Campaign creation failed: {exc}", "error")
+    else:
+        flash(f"Campaign '{result['source']}' created.", "success")
+    return redirect(url_for("admin.promos"))
+
+
 @admin_bp.get("/broadcast")
 @require_admin
 def broadcast_form():

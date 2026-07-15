@@ -131,6 +131,11 @@ const i18n = {
     "wheel.ready": "Спин доступен!",
     "wheel.wait": "Следующий спин через {time}",
     "wheel.won": "Выпало {amount} {coin}!",
+    "promo.title": "Промокод",
+    "promo.desc": "Введи промокод и получи награду.",
+    "promo.apply": "Активировать",
+    "promo.wonCoins": "Промокод активирован: +{amount} {coin}!",
+    "promo.wonDays": "Промокод активирован: {kind} на {days} дн.!",
     "bonus.claimed": "Бонус начислен: +{amount} {coin}",
     "invite.title": "Приглашай друзей",
     "invite.desc": "За каждого приглашенного друга ты получишь 1000 монет.",
@@ -185,6 +190,7 @@ i18n.en = { ...i18n.ru,
   "roulette.desc": "Shared 37-number room. Hit the number and get x36.", "roulette.number": "Number 0-36", "roulette.bet": "Bet", "roulette.history": "History", "roulette.result": "Result", "roulette.rolling": "Wheel is spinning...",
   "bonus.title": "Bonus", "bonus.desc": "Claim the daily bonus — a day streak grows the reward up to 1,900 coins.", "bonus.claim": "Claim bonus", "bonus.ready": "Bonus ready", "bonus.wait": "Next bonus in {time}", "bonus.claimed": "Bonus credited: +{amount} {coin}",
   "wheel.title": "Wheel of Fortune", "wheel.desc": "Free spin every 12 hours — even with a zero balance.", "wheel.spin": "Spin", "wheel.ready": "Spin available!", "wheel.wait": "Next spin in {time}", "wheel.won": "You won {amount} {coin}!",
+  "promo.title": "Promo code", "promo.desc": "Enter a promo code to get a reward.", "promo.apply": "Redeem", "promo.wonCoins": "Promo applied: +{amount} {coin}!", "promo.wonDays": "Promo applied: {kind} for {days} days!",
   "invite.title": "Invite friends", "invite.desc": "Get 1000 coins for every invited friend.", "invite.copy": "Copy link", "invite.copied": "Link copied",
   "shop.title": "Shop", "shop.desc": "Telegram Stars unlock digital features: cosmetics, Premium, Season Pass and daily bonus renewal. Odds and payouts do not change.", "leaders.title": "Leaderboard", "leaders.desc": "Top 100 users by balance.", "leaders.refresh": "Refresh"
 };
@@ -243,6 +249,11 @@ Object.assign(i18n.uk, {
   "wheel.ready": "Спін доступний!",
   "wheel.wait": "Наступний спін через {time}",
   "wheel.won": "Випало {amount} {coin}!",
+  "promo.title": "Промокод",
+  "promo.desc": "Введи промокод і отримай нагороду.",
+  "promo.apply": "Активувати",
+  "promo.wonCoins": "Промокод активовано: +{amount} {coin}!",
+  "promo.wonDays": "Промокод активовано: {kind} на {days} дн.!",
   "bonus.claimed": "Бонус нараховано: +{amount} {coin}",
   "invite.title": "Запрошуй друзів",
   "invite.desc": "За кожного запрошеного друга ти отримаєш 1000 монет.",
@@ -375,7 +386,7 @@ Object.assign(i18n.ru, {
   "retention.quest.volume_1000": "Прокрути 1000 монет за день",
   "retention.quests": "Ежедневные квесты",
   "season.title": "Сезонный трек",
-  "season.passHint": "★ Премиум-награды открываются с Season Pass (в магазине).",
+  "season.passHint": "🪙 Премиум-ветка даёт дополнительные монеты (не Stars). Открывается с Season Pass в магазине.",
   "season.level": "Уровень",
   "ach.title": "Ачивки",
   "ach.first_win": "Первая победа",
@@ -488,7 +499,7 @@ Object.assign(i18n.uk, {
   "retention.quest.volume_1000": "Прокрути 1000 монет за день",
   "retention.quests": "Щоденні квести",
   "season.title": "Сезонний трек",
-  "season.passHint": "★ Преміум-нагороди відкриваються з Season Pass (у магазині).",
+  "season.passHint": "🪙 Преміум-гілка дає додаткові монети (не Stars). Відкривається з Season Pass у магазині.",
   "season.level": "Рівень",
   "ach.title": "Ачивки",
   "ach.first_win": "Перша перемога",
@@ -601,7 +612,7 @@ Object.assign(i18n.en, {
   "retention.quest.volume_1000": "Wager 1000 coins today",
   "retention.quests": "Daily quests",
   "season.title": "Season track",
-  "season.passHint": "★ Premium rewards unlock with the Season Pass (shop).",
+  "season.passHint": "🪙 The premium track pays bonus coins (not Stars). Unlocks with the Season Pass in the shop.",
   "season.level": "Level",
   "ach.title": "Achievements",
   "ach.first_win": "First win",
@@ -2140,7 +2151,7 @@ function renderSeasonTrack(retention) {
         </button>
         <button type="button" class="season-claim premium ${row.premium.claimed ? "claimed" : premiumReady ? "ready" : "locked"}"
           data-season-level="${row.level}" data-season-tier="premium" ${premiumReady ? "" : "disabled"}>
-          ${row.premium.claimed ? "✓" : `★ +${formatNumber(row.premium.reward)}`}
+          ${row.premium.claimed ? "✓" : `🪙 +${formatNumber(row.premium.reward)}`}
         </button>
       </div>`;
   }).join("");
@@ -2266,7 +2277,7 @@ async function claimSeasonReward(level, tier) {
     playSound("win");
     if (body.user) setBalance(body.user.balance);
     renderRetention(body.retention);
-    showResult($("#retentionResult"), `Lv ${level} ${tier === "premium" ? "★" : ""} +${formatNumber(body.claim.reward)} ${coinName}`, true);
+    showResult($("#retentionResult"), `Lv ${level} +${formatNumber(body.claim.reward)} ${coinName}`, true);
   } catch (error) {
     showResult($("#retentionResult"), error.message, false);
   }
@@ -2358,7 +2369,34 @@ function renderProfile() {
   applyBetLimits();
 }
 
+async function redeemPromo() {
+  const input = $("#promoCodeInput");
+  const code = (input.value || "").trim();
+  if (!code) return;
+  const button = $("#promoRedeem");
+  setBusy(button, true);
+  try {
+    const body = await api("/api/promo/redeem", { method: "POST", body: JSON.stringify({ code }) });
+    const promo = body.promo;
+    if (body.user) setBalance(body.user.balance);
+    playSound("win");
+    input.value = "";
+    const message = promo.reward_kind === "coins"
+      ? t("promo.wonCoins", { amount: formatNumber(promo.reward_value), coin: coinName })
+      : t("promo.wonDays", { days: promo.reward_value, kind: promo.reward_kind === "premium" ? "Premium" : "Season Pass" });
+    showResult($("#promoResult"), message, true);
+  } catch (error) {
+    showResult($("#promoResult"), error.message, false);
+  } finally {
+    setBusy(button, false);
+  }
+}
+
 function bindProfile() {
+  $("#promoRedeem")?.addEventListener("click", redeemPromo);
+  $("#promoCodeInput")?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") redeemPromo();
+  });
   $("#bonusNotifyToggle").addEventListener("change", async (event) => {
     const enabled = event.target.checked;
     try {
@@ -2517,6 +2555,8 @@ function balanceEventTitle(value) {
     admin_adjustment: "Admin adjustment",
     wheel_bonus: "Wheel of fortune",
     weekly_reward: "Weekly top reward",
+    promo_code: "Promo code",
+    campaign_reward: "Welcome bonus",
     admin_ban: "Account block",
     admin_unban: "Account unblock",
   };
