@@ -141,7 +141,7 @@ const i18n = {
     "shop.buy": "{stars} Stars",
   "shop.invoiceOpened": "Счет открыт. После оплаты покупка применится в Mini App.",
     "shop.renewTitle": "Обновить ежедневный бонус",
-    "shop.renewDesc": "Сбросить 24-часовой таймер бонуса. Монеты напрямую не покупаются.",
+    "shop.renewDesc": "Сбросить 24-часовой таймер бонуса и забрать его раньше. Монеты остаются невыводимыми.",
     "shop.renewed": "Счет открыт. После оплаты бонус можно будет забрать снова.",
     "leaders.title": "Лидерборд",
     "leaders.desc": "Топ 100 пользователей по балансу.",
@@ -250,7 +250,7 @@ Object.assign(i18n.uk, {
   "shop.desc": "Telegram Stars відкривають цифрові функції: косметику, Premium, Season Pass і renew daily bonus. Шанси та виплати не змінюються.",
   "shop.invoiceOpened": "Рахунок відкрито. Після оплати покупка застосовується в Mini App.",
   "shop.renewTitle": "Оновити щоденний бонус",
-  "shop.renewDesc": "Скинути 24-годинний таймер бонусу. Монети напряму не купуються.",
+  "shop.renewDesc": "Скинути 24-годинний таймер бонусу та забрати його раніше. Монети залишаються невивідними.",
   "shop.renewed": "Рахунок відкрито. Після оплати бонус можна буде забрати знову.",
   "leaders.desc": "Топ 100 користувачів за балансом."
 });
@@ -275,7 +275,7 @@ Object.assign(i18n.en, {
   "roulette.lose": "Number {number}. Missed.",
   "shop.invoiceOpened": "Invoice opened. After payment, the item will be applied in the Mini App.",
   "shop.renewTitle": "Renew daily bonus",
-  "shop.renewDesc": "Reset the 24h bonus timer. This does not buy coins directly.",
+  "shop.renewDesc": "Reset the 24h bonus timer so the bonus can be claimed again sooner. Coins stay non-redeemable.",
   "shop.renewed": "Invoice opened. After payment, you can claim the bonus again."
 });
 

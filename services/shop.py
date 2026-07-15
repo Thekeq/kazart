@@ -11,7 +11,7 @@ SHOP_ITEMS = (
         "kind": DAILY_BONUS_RENEW_KIND,
         "stars": DAILY_BONUS_RENEW_STARS,
         "title": "Renew daily bonus",
-        "description": "Reset the 24h daily bonus timer. This does not buy coins directly.",
+        "description": "Reset the 24h daily bonus timer so the bonus can be claimed again sooner. Coins stay non-redeemable.",
         "category": "utility",
     },
     {
@@ -39,7 +39,7 @@ SHOP_ITEMS = (
         "kind": "season_pass",
         "stars": 149,
         "title": "Season pass",
-        "description": "Premium season reward track with cosmetic rewards. No gameplay advantage.",
+        "description": "Premium season reward track with bonus virtual coins and cosmetics. No effect on game odds.",
         "category": "premium",
     },
 )
