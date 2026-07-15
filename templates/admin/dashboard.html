@@ -1,0 +1,78 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<h2>Last 24 hours</h2>
+<section class="grid">
+  <div class="card accent">New users<strong>+{{ stats.users_new_24h }}</strong><span class="sub">{{ stats.users_count }} total</span></div>
+  <div class="card accent">Active users<strong>{{ stats.users_active_24h }}</strong><span class="sub">{{ stats.users_active_7d }} in 7 days</span></div>
+  <div class="card accent">Games played<strong>{{ stats.games_24h }}</strong><span class="sub">{{ stats.games_count }} all time</span></div>
+  <div class="card accent">Bets / payouts<strong>{{ stats.bets_24h }} / {{ stats.payouts_24h }}</strong><span class="sub">{{ coin_name }}, 24h</span></div>
+  <div class="card {{ 'good' if stats.house_net_24h >= 0 else 'bad' }}">House net<strong>{{ '+' if stats.house_net_24h > 0 }}{{ stats.house_net_24h }}</strong><span class="sub">bets − payouts, 24h</span></div>
+</section>
+
+<h2>Games by type (7 days)</h2>
+{% if stats.by_game %}
+<div class="bars">
+  {% for row in stats.by_game %}
+  <div class="bar-row">
+    <span>{{ row.game }}</span>
+    <div class="bar-track"><div class="bar-fill" style="width: {{ row.share }}%"></div></div>
+    <em>{{ row.count }} games · {{ row.bets }} → {{ row.payouts }} ({{ '+' if row.net > 0 }}{{ row.net }})</em>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted">No games in the last 7 days.</p>
+{% endif %}
+
+<h2>Totals</h2>
+<section class="grid">
+  <div class="card">Users<strong>{{ stats.users_count }}</strong><span class="sub">{{ stats.legal_users_count }} accepted terms</span></div>
+  <div class="card">Blocked<strong>{{ stats.banned_users_count }}</strong></div>
+  <div class="card">Total balance<strong>{{ stats.total_balance }}</strong><span class="sub">{{ coin_name }}</span></div>
+  <div class="card">Bets / payouts<strong>{{ stats.total_bets }} / {{ stats.total_wins }}</strong><span class="sub">all time</span></div>
+  <div class="card">Stars payments<strong>{{ stats.payments_count }} / {{ stats.total_stars }}</strong><span class="sub">count / Stars net of refunds</span></div>
+  <div class="card">Refunds<strong>{{ stats.refunded_payments_count }} / {{ stats.refunded_stars }}</strong><span class="sub">count / Stars</span></div>
+</section>
+
+<h2>Recent Stars payments</h2>
+<table>
+  <thead>
+    <tr><th>Time</th><th>User</th><th>Kind</th><th>Stars</th><th>Status</th><th>Charge ID</th></tr>
+  </thead>
+  <tbody>
+    {% for payment in payments %}
+    <tr>
+      <td>{{ payment.created_at }}</td>
+      <td><a href="{{ url_for('admin.user_detail', telegram_id=payment.telegram_id) }}">{{ payment.username or payment.first_name or payment.telegram_id }}</a></td>
+      <td>{{ payment.kind }}</td>
+      <td>{{ payment.stars }}</td>
+      <td>{{ "refunded" if payment.refunded_at else "paid" }}</td>
+      <td>{{ payment.telegram_payment_charge_id }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Recent games</h2>
+<table>
+  <thead>
+    <tr><th>Time</th><th>User</th><th>Game</th><th>Bet</th><th>x</th><th>Outcome</th><th>Payout</th><th>Balance</th></tr>
+  </thead>
+  <tbody>
+    {% for game in games %}
+    <tr>
+      <td>{{ game.created_at }}</td>
+      <td><a href="{{ url_for('admin.user_detail', telegram_id=game.telegram_id) }}">{{ game.username or game.first_name or game.telegram_id }}</a></td>
+      <td>{{ game.game }}</td>
+      <td>{{ game.bet }}</td>
+      <td>{{ "%.2f"|format(game.multiplier) }}</td>
+      <td>{{ game.outcome }}</td>
+      <td>{{ game.win_amount }}</td>
+      <td>{{ game.balance_after }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

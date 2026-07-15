@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ "Terms" if page == "terms" else "Privacy" }} - KAZart</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/webapp.css') }}">
+</head>
+<body>
+<main class="legal-page">
+  <a class="legal-back" href="{{ url_for('web.webapp') }}">Back to KAZart</a>
+  {% if page == "terms" %}
+  <h1>Terms of Use</h1>
+  <p>KAZart is an entertainment Mini App with virtual coins only. It is not a real-money casino.</p>
+  <ul>
+    <li>You must be 18+ to use the app.</li>
+    <li>Virtual coins have no cash value.</li>
+    <li>Virtual coins cannot be withdrawn, sold, transferred, exchanged for prizes, or redeemed for goods.</li>
+    <li>Game results are for entertainment only and do not create any real-world winnings.</li>
+    <li>Telegram Stars purchases, if available, unlock digital app features only and do not buy coins directly. Current items include daily bonus renewal, cosmetics, Premium, and Season Pass.</li>
+    <li>Payment support is available through the bot command /paysupport and the /support page.</li>
+    <li>Use of the app may be limited, blocked, or reset if abuse, automation, fraud, or platform violations are detected.</li>
+  </ul>
+  <p>If your local laws do not allow this type of entertainment product, do not use the app.</p>
+  {% else %}
+  <h1>Privacy Policy</h1>
+  <p>KAZart stores the minimum data needed to run the Mini App.</p>
+  <ul>
+    <li>Telegram user id, username, first name, game logs, virtual balance, referrals, bonus status, and payment payload metadata may be stored.</li>
+    <li>Payment card data is not handled by KAZart. Telegram processes Telegram Stars payments.</li>
+    <li>Game logs are used for balances, anti-abuse checks, support, and admin statistics.</li>
+    <li>Data may be backed up to protect the service from accidental loss.</li>
+  </ul>
+  <p>Contact the bot owner for deletion or support requests.</p>
+  {% endif %}
+</main>
+</body>
+</html>

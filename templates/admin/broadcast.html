@@ -1,0 +1,37 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<form class="panel" method="post">
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  <h1>Broadcast</h1>
+  <label for="text">Message text</label>
+  <textarea id="text" name="text" placeholder="Message for all users"></textarea>
+  <label for="photo_url">Photo URL</label>
+  <input id="photo_url" name="photo_url" type="url" placeholder="https://...">
+  <label for="button_text">Button text</label>
+  <input id="button_text" name="button_text" placeholder="Open">
+  <label for="button_url">Button URL</label>
+  <input id="button_url" name="button_url" type="url" placeholder="https://...">
+  <p><button class="btn" type="submit">Send broadcast</button></p>
+</form>
+{% if jobs %}
+<h2>Recent Broadcast Jobs</h2>
+<table>
+  <thead>
+    <tr><th>ID</th><th>Created</th><th>Status</th><th>Sent</th><th>Failed</th><th>Preview</th><th>Finished</th></tr>
+  </thead>
+  <tbody>
+    {% for job in jobs %}
+    <tr>
+      <td>{{ job.id }}</td>
+      <td>{{ job.created_at }}</td>
+      <td>{{ job.status }}</td>
+      <td>{{ job.sent }}/{{ job.total }}</td>
+      <td>{{ job.failed }}</td>
+      <td>{{ job.preview }}</td>
+      <td>{{ job.finished_at or "" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

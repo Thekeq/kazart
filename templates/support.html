@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Support - KAZart</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/webapp.css') }}">
+</head>
+<body class="legal-body">
+<main class="legal-page">
+  <a class="legal-back" href="{{ url_for('web.webapp') }}">Back to KAZart</a>
+  <h1>Support</h1>
+  <p>KAZart is 18+ entertainment with virtual coins only. Coins have no cash value and cannot be withdrawn, sold, transferred, exchanged for prizes, or redeemed for goods.</p>
+  <p>For Mini App access, account issues, digital shop features, Telegram Stars payments, or refund requests, contact support using one of the channels below.</p>
+  <ul>
+    {% if settings.support_username %}
+    <li>Telegram: <a href="https://t.me/{{ settings.support_username }}">@{{ settings.support_username }}</a></li>
+    {% endif %}
+    {% if settings.support_email %}
+    <li>Email: <a href="mailto:{{ settings.support_email }}">{{ settings.support_email }}</a></li>
+    {% endif %}
+    {% if settings.support_text %}
+    <li>{{ settings.support_text }}</li>
+    {% endif %}
+    {% if not settings.support_username and not settings.support_email and not settings.support_text %}
+    <li>Contact the bot administrator through Telegram.</li>
+    {% endif %}
+  </ul>
+  <h2>Payment Support</h2>
+  <p>Current Stars items are daily bonus renewal, cosmetics, Premium, and Season Pass. They unlock digital app features and do not buy coins directly.</p>
+  <p>When asking for payment support, include your Telegram user id and the approximate payment time.</p>
+</main>
+</body>
+</html>

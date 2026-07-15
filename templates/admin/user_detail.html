@@ -1,0 +1,145 @@
+{% extends "admin/base.html" %}
+{% block content %}
+{% if not user %}
+  <h1>User not found</h1>
+{% else %}
+  <h1>User {{ user.telegram_id }}</h1>
+  <section class="grid">
+    <div class="card">Username<strong>{{ user.username or "-" }}</strong></div>
+    <div class="card">Balance<strong>{{ user.balance }}</strong><span class="sub">{{ coin_name }}</span></div>
+    <div class="card">Status<strong>{{ "blocked" if user.is_banned else "active" }}</strong><span class="sub">{{ "admin" if user.is_admin else "player" }} · notify {{ "on" if user.bonus_notify_enabled else "off" }}</span></div>
+    <div class="card">Legal accepted<strong>{{ "yes" if user.legal_accepted_at else "no" }}</strong><span class="sub">{{ user.legal_accepted_at or "" }}</span></div>
+    <div class="card">Referrals<strong>{{ user.referral_count }}</strong></div>
+    <div class="card {{ 'good' if user.premium_until else '' }}">Premium<strong>{{ "active" if user.premium_until else "off" }}</strong><span class="sub">{{ user.premium_until or "not granted" }}</span></div>
+    <div class="card {{ 'good' if user.season_pass_until else '' }}">Season Pass<strong>{{ "active" if user.season_pass_until else "off" }}</strong><span class="sub">{{ user.season_pass_until or "not granted" }}</span></div>
+    <div class="card {{ 'bad' if (user.luck_factor or 1.0) < 1.0 else 'good' if (user.luck_factor or 1.0) > 1.0 else '' }}">Luck factor<strong>{{ "%.2f"|format(user.luck_factor or 1.0) }}</strong><span class="sub">1.00 = normal odds</span></div>
+    <div class="card">Streak<strong>{{ user.daily_streak_count or 0 }}</strong><span class="sub">best {{ user.best_daily_streak or 0 }}</span></div>
+  </section>
+  {% if user.is_banned %}
+    <p class="muted">Ban reason: {{ user.ban_reason or "-" }} / {{ user.banned_at or "-" }}</p>
+  {% endif %}
+
+  <h2>Admin actions</h2>
+  <section class="grid">
+    <form class="panel" method="post" action="{{ url_for('admin.user_balance_adjust', telegram_id=user.telegram_id) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <div style="padding: 18px;">
+        <label>Balance adjustment</label>
+        <input name="amount" type="number" step="1" placeholder="+1000 or -500" required>
+        <label>Internal note</label>
+        <input name="reason" placeholder="why this adjustment is needed">
+        <button class="btn" type="submit" style="margin-top: 12px;">Apply</button>
+      </div>
+    </form>
+    <form class="panel" method="post" action="{{ url_for('admin.user_premium', telegram_id=user.telegram_id) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <div style="padding: 18px;">
+        <label>Premium</label>
+        <p class="muted">Current: <span class="pill {{ 'on' if user.premium_until else 'off' }}">{{ user.premium_until or "off" }}</span></p>
+        <label>Days to grant</label>
+        <input name="days" type="number" min="1" max="3650" value="30">
+        <div class="inline-actions">
+          <button class="btn" type="submit" name="action" value="grant">Grant</button>
+          <button class="btn secondary" type="submit" name="action" value="revoke">Revoke</button>
+        </div>
+      </div>
+    </form>
+    <form class="panel" method="post" action="{{ url_for('admin.user_season', telegram_id=user.telegram_id) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <div style="padding: 18px;">
+        <label>Season Pass</label>
+        <p class="muted">Current: <span class="pill {{ 'on' if user.season_pass_until else 'off' }}">{{ user.season_pass_until or "off" }}</span></p>
+        <label>Days to grant</label>
+        <input name="days" type="number" min="1" max="3650" value="60">
+        <div class="inline-actions">
+          <button class="btn" type="submit" name="action" value="grant">Grant</button>
+          <button class="btn secondary" type="submit" name="action" value="revoke">Revoke</button>
+        </div>
+      </div>
+    </form>
+    <form class="panel" method="post" action="{{ url_for('admin.user_luck', telegram_id=user.telegram_id) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <div style="padding: 18px;">
+        <label>Luck factor</label>
+        <p class="muted">0.25–2.00. Above 1 quietly rerolls losing rounds, below 1 rerolls winning ones. Applies to Upgrader, Dice and Plinko. Logged to the user's balance events.</p>
+        <input name="luck_factor" type="number" step="0.05" min="0.25" max="2" value="{{ '%.2f'|format(user.luck_factor or 1.0) }}">
+        <button class="btn" type="submit" style="margin-top: 12px;">Save luck</button>
+      </div>
+    </form>
+    {% if user.is_banned %}
+      <form class="panel" method="post" action="{{ url_for('admin.user_unban', telegram_id=user.telegram_id) }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div style="padding: 18px;">
+          <label>Account moderation</label>
+          <p class="muted">This user is currently blocked from protected Mini App actions.</p>
+          <button class="btn secondary" type="submit">Unblock user</button>
+        </div>
+      </form>
+    {% else %}
+      <form class="panel" method="post" action="{{ url_for('admin.user_ban', telegram_id=user.telegram_id) }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div style="padding: 18px;">
+          <label>Block account</label>
+          <input name="reason" placeholder="reason shown in admin logs">
+          <button class="btn secondary" type="submit" style="margin-top: 12px;">Block user</button>
+        </div>
+      </form>
+    {% endif %}
+  </section>
+
+  <h2>Stars payments</h2>
+  <table>
+    <thead><tr><th>Time</th><th>Kind</th><th>Stars</th><th>Status</th><th>Charge ID</th></tr></thead>
+    <tbody>
+    {% for payment in payments %}
+      <tr>
+        <td>{{ payment.created_at }}</td>
+        <td>{{ payment.kind }}</td>
+        <td>{{ payment.stars }}</td>
+        <td>{{ "refunded" if payment.refunded_at else "paid" }}</td>
+        <td>{{ payment.telegram_payment_charge_id }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <h2>Player history</h2>
+  <table>
+    <thead><tr><th>Time</th><th>Type</th><th>Kind</th><th>Outcome</th><th>Amount</th><th>Balance</th></tr></thead>
+    <tbody>
+    {% for item in history %}
+      <tr>
+        <td>{{ item.created_at }}</td>
+        <td>{{ item.type }}</td>
+        <td>{{ item.kind }}</td>
+        <td>{{ item.outcome }}</td>
+        <td>
+          {% if item.type == "game" %}
+            bet {{ item.bet }}, payout {{ item.win_amount }}
+          {% else %}
+            {{ item.amount }}
+          {% endif %}
+        </td>
+        <td>{{ item.balance_after }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <h2>Games</h2>
+  <table>
+    <thead><tr><th>Time</th><th>Game</th><th>Bet</th><th>x</th><th>Outcome</th><th>Payout</th><th>Balance</th></tr></thead>
+    <tbody>
+    {% for game in games %}
+      <tr>
+        <td>{{ game.created_at }}</td>
+        <td>{{ game.game }}</td>
+        <td>{{ game.bet }}</td>
+        <td>{{ "%.2f"|format(game.multiplier) }}</td>
+        <td>{{ game.outcome }}</td>
+        <td>{{ game.win_amount }}</td>
+        <td>{{ game.balance_after }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
+{% endblock %}

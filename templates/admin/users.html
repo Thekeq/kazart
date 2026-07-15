@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<h1>Users</h1>
+<form method="get" action="{{ url_for('admin.users') }}" class="user-search">
+  <input type="search" name="q" value="{{ query }}" placeholder="Search by Telegram ID, @username or name" autocomplete="off">
+  <button class="btn" type="submit">Search</button>
+  {% if query %}<a class="btn secondary" href="{{ url_for('admin.users') }}">Reset</a>{% endif %}
+</form>
+<p class="muted">{{ total }} user{{ "s" if total != 1 }}{% if query %} matching "{{ query }}"{% endif %} · page {{ page }} of {{ pages }}</p>
+<table>
+  <thead>
+    <tr><th>Telegram ID</th><th>Username</th><th>Name</th><th>Balance</th><th>Status</th><th>Legal</th><th>Refs</th><th>Last seen</th></tr>
+  </thead>
+  <tbody>
+    {% for user in users %}
+    <tr>
+      <td><a href="{{ url_for('admin.user_detail', telegram_id=user.telegram_id) }}">{{ user.telegram_id }}</a></td>
+      <td>{{ user.username or "" }}</td>
+      <td>{{ user.first_name or "" }} {{ user.last_name or "" }}</td>
+      <td>{{ user.balance }} {{ coin_name }}</td>
+      <td>{{ "blocked" if user.is_banned else "active" }}</td>
+      <td>{{ "yes" if user.legal_accepted_at else "no" }}</td>
+      <td>{{ user.referral_count }}</td>
+      <td>{{ user.last_seen_at }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="muted">No users found.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if pages > 1 %}
+<div class="pager">
+  {% if has_prev %}<a class="btn secondary" href="{{ url_for('admin.users', q=query, page=page-1) }}">← Prev</a>{% endif %}
+  <span class="muted">Page {{ page }} / {{ pages }}</span>
+  {% if has_next %}<a class="btn secondary" href="{{ url_for('admin.users', q=query, page=page+1) }}">Next →</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

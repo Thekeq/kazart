@@ -1,0 +1,13 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<form class="panel" method="post">
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  <h1>Admin Login</h1>
+  {% if not has_password %}
+    <p class="muted">Set <code>ADMIN_PASSWORD</code> in <code>.env</code>, restart Flask, then log in here.</p>
+  {% endif %}
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" required>
+  <p><button class="btn" type="submit">Login</button></p>
+</form>
+{% endblock %}

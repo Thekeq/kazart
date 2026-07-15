@@ -1,0 +1,46 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<h1>Stars Payments</h1>
+<p class="muted">Current products: daily bonus renewal, cosmetics, Premium, and Season Pass. They unlock digital app features and do not buy coins directly.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>User</th>
+      <th>Kind</th>
+      <th>Stars</th>
+      <th>Status</th>
+      <th>Charge ID</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for payment in payments %}
+    <tr>
+      <td>{{ payment.created_at }}</td>
+      <td><a href="{{ url_for('admin.user_detail', telegram_id=payment.telegram_id) }}">{{ payment.username or payment.first_name or payment.telegram_id }}</a></td>
+      <td>{{ payment.kind }}</td>
+      <td>{{ payment.stars }}</td>
+      <td>
+        {% if payment.refunded_at %}
+          refunded at {{ payment.refunded_at }}
+        {% else %}
+          paid
+        {% endif %}
+      </td>
+      <td>{{ payment.telegram_payment_charge_id }}</td>
+      <td>
+        {% if payment.refunded_at %}
+          <span class="muted">done</span>
+        {% else %}
+          <form method="post" action="{{ url_for('admin.refund_payment', charge_id=payment.telegram_payment_charge_id) }}" onsubmit="return confirm('Refund this Stars payment?');">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button class="btn secondary" type="submit">Refund</button>
+          </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
