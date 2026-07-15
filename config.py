@@ -41,7 +41,7 @@ def _path_env(name: str, default: str | Path, allow_none: bool = False) -> Path 
 
 def _database_env(name: str, default: str | Path) -> str | Path:
     raw = os.getenv(name)
-    if raw is not None and raw.strip() in {":memory:"}:
+    if raw is not None and raw.strip() == ":memory:":
         return ":memory:"
     path = _path_env(name, default)
     if path is None:
@@ -164,7 +164,7 @@ def load_settings() -> Settings:
         port=_int_env("PORT", 5000),
         debug=debug,
         log_file=_path_env("LOG_FILE", "logs/app.log", allow_none=True),
-        backup_dir=_path_env("BACKUP_DIR", "backups") or BASE_DIR / "backups",
+        backup_dir=_path_env("BACKUP_DIR", "backups"),
         backup_on_start=_bool_env("BACKUP_ON_START", True),
         backup_keep=_int_env("BACKUP_KEEP", 10),
         drop_pending_updates=_bool_env("DROP_PENDING_UPDATES", True),

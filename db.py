@@ -67,7 +67,6 @@ class BalanceError(ValueError):
 class DataBase:
     def __init__(self, db_file: str | Path):
         self._in_memory = str(db_file) == ":memory:"
-        self._sqlite_uri = self._in_memory
         self._memory_keeper: sqlite3.Connection | None = None
         if self._in_memory:
             self.db_file: str | Path = f"file:casino-{id(self)}?mode=memory&cache=shared"
@@ -81,7 +80,7 @@ class DataBase:
         self._migrate()
 
     def connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_file, timeout=15, isolation_level=None, uri=self._sqlite_uri)
+        conn = sqlite3.connect(self.db_file, timeout=15, isolation_level=None, uri=self._in_memory)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=MEMORY;" if self._in_memory else "PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA synchronous=NORMAL;")
@@ -361,7 +360,7 @@ class DataBase:
         return default
 
     def ensure_user(self, tg_user: Any, is_admin: bool = False) -> dict[str, Any]:
-        telegram_id = int(self._read_attr(tg_user, "id", "telegram_id"))
+        telegram_id = int(self._read_attr(tg_user, "id"))
         now = self.now()
         username = self._read_attr(tg_user, "username", default=None)
         first_name = self._read_attr(tg_user, "first_name", default=None)
@@ -993,53 +992,6 @@ class DataBase:
                 int(row[0])
                 for row in conn.execute("SELECT telegram_id FROM users WHERE COALESCE(is_banned, 0) = 0").fetchall()
             ]
-
-    def add_balance(
-        self,
-        telegram_id: int,
-        amount: int,
-        reason: str,
-        meta: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        if amount <= 0:
-            raise BalanceError("Amount must be greater than zero")
-
-        with self.user_lock(telegram_id), self.transaction() as conn:
-            user = conn.execute("SELECT * FROM users WHERE telegram_id = ?", (telegram_id,)).fetchone()
-            if user is None:
-                raise BalanceError("User is not registered")
-
-            balance_before = int(user["balance"])
-            balance_after = balance_before + amount
-            now = self.now()
-            conn.execute(
-                "UPDATE users SET balance = ?, updated_at = ?, last_seen_at = ? WHERE telegram_id = ?",
-                (balance_after, now, now, telegram_id),
-            )
-            conn.execute(
-                """
-                INSERT INTO balance_events (
-                    telegram_id, amount, reason, balance_before, balance_after, meta_json, created_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    telegram_id,
-                    amount,
-                    reason,
-                    balance_before,
-                    balance_after,
-                    json.dumps(meta or {}, ensure_ascii=False),
-                    now,
-                ),
-            )
-            return {
-                "telegram_id": telegram_id,
-                "amount": amount,
-                "reason": reason,
-                "balance_before": balance_before,
-                "balance_after": balance_after,
-            }
 
     def adjust_balance(
         self,
@@ -2207,18 +2159,10 @@ class DataBase:
                 reduced = previous
             new_value = None if reduced <= now_dt else reduced.isoformat(timespec="seconds")
 
-        if column == "premium_until":
-            conn.execute(
-                "UPDATE users SET premium_until = ?, updated_at = ?, last_seen_at = ? WHERE telegram_id = ?",
-                (new_value, now, now, telegram_id),
-            )
-        elif column == "season_pass_until":
-            conn.execute(
-                "UPDATE users SET season_pass_until = ?, updated_at = ?, last_seen_at = ? WHERE telegram_id = ?",
-                (new_value, now, now, telegram_id),
-            )
-        else:
-            return {"applied": False, "reason": "unsupported_column", "column": column}
+        conn.execute(
+            f"UPDATE users SET {column} = ?, updated_at = ?, last_seen_at = ? WHERE telegram_id = ?",
+            (new_value, now, now, telegram_id),
+        )
         return {"applied": True, "column": column, "value_after": new_value}
 
     def get_runtime_state(self, key: str) -> dict[str, Any] | None:

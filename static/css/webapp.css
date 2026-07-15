@@ -49,18 +49,6 @@ button:active:not(:disabled) { transform: scale(.96); }
   padding: 6px 2px 12px;
 }
 
-.top-actions,
-.header-stack {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.header-stack {
-  flex-wrap: wrap;
-}
-
 .wallet-panel {
   display: grid;
   grid-template-columns: minmax(148px, 1fr) auto;
@@ -186,11 +174,6 @@ button:active:not(:disabled) { transform: scale(.96); }
   outline: none;
 }
 
-.icon-action span {
-  font-size: 18px;
-  line-height: 1;
-}
-
 .quick-icon {
   width: 20px;
   height: 20px;
@@ -269,28 +252,6 @@ button:active:not(:disabled) { transform: scale(.96); }
 h1, h2, p { margin: 0; }
 h1 { font-size: 28px; line-height: 1.05; }
 h2 { font-size: 22px; line-height: 1.1; }
-
-.balance-box {
-  min-width: 142px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgba(26, 27, 32, .78);
-  box-shadow: var(--shadow);
-  text-align: right;
-}
-
-.balance-box span {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.balance-box strong {
-  display: block;
-  margin-top: 2px;
-  font-size: 17px;
-}
 
 .auth-warning {
   margin: 4px 0 12px;
@@ -711,7 +672,6 @@ input[type="range"] {
   box-shadow: 0 14px 35px rgba(244, 201, 93, .16);
   font-size: 42px;
   font-weight: 900;
-  transition: border-color .3s ease, box-shadow .3s ease;
 }
 
 .dice-face.win-face {
@@ -890,38 +850,9 @@ input[type="range"] {
   gap: 8px;
 }
 
-.roulette-controls {
-  gap: 8px;
-}
-
 .roulette-bets {
   display: grid;
   gap: 8px;
-}
-
-.roulette-type-tabs,
-.roulette-choice-tabs {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.roulette-choice-tabs {
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.roulette-range-tabs {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.roulette-choice-tabs .red-choice.active {
-  border-color: rgba(255, 92, 120, .65);
-  background: rgba(255, 92, 120, .18);
-  color: #ffd0d9;
-}
-
-.roulette-choice-tabs .black-choice.active {
-  border-color: rgba(255,255,255,.35);
-  background: rgba(10,12,16,.88);
-  color: #fff;
 }
 
 .roulette-wheel {
@@ -1139,10 +1070,6 @@ input[type="range"] {
   line-height: 1.4;
 }
 
-.week-prize-hint[hidden] {
-  display: none;
-}
-
 .bonus-panel strong {
   font-size: 28px;
   line-height: 1;
@@ -1319,19 +1246,9 @@ input[type="range"] {
   outline: none;
 }
 
-.shop-card strong,
-.shop-card span {
-  display: block;
-}
-
 .shop-card strong {
+  display: block;
   font-size: 17px;
-}
-
-.shop-card span {
-  margin-top: 6px;
-  color: var(--gold);
-  font-weight: 800;
 }
 
 .leaders-list {
@@ -2262,29 +2179,6 @@ body.cosmetic-gold-ball .ball {
   100% { transform: scale(3.4); opacity: 0; }
 }
 
-.roulette-potential {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid rgba(244, 201, 93, .26);
-  border-radius: 12px;
-  background: rgba(244, 201, 93, .07);
-}
-
-.roulette-potential span {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.roulette-potential strong {
-  color: var(--gold);
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
 .bet-type-tabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2536,7 +2430,6 @@ label[hidden] {
   .game-head.compact { grid-template-columns: 1fr minmax(160px, .9fr); align-items: end; }
   .roulette-layout { grid-template-columns: .94fr 1fr; }
   .roulette-wheel { --wheel-size: min(43vw, 258px); }
-  .roulette-controls { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 390px) {
@@ -2564,8 +2457,6 @@ label[hidden] {
     justify-self: stretch;
   }
 
-  .top-actions { display: grid; gap: 6px; }
-  .balance-box { min-width: 116px; }
   .tab { font-size: 11px; padding: 0 3px; }
   .upgrade-board { grid-template-columns: 1fr; }
   .upgrade-side { grid-template-columns: repeat(2, 1fr); }

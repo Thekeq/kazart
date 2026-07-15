@@ -24,7 +24,6 @@ let rouletteRetryUntil = 0;
 let hasCrashBet = false;
 let hasRouletteBet = false;
 let upgradePointerRotation = 0;
-let lastLeaderboard = [];
 let lastHistory = [];
 let lastRetention = null;
 let lastShopPackages = [];
@@ -147,7 +146,6 @@ const i18n = {
 };
 
 i18n.uk = { ...i18n.ru,
-  "common.balance": "Баланс", "common.bet": "Ставка", "nav.bonus": "Бонус", "nav.shop": "Магазин", "nav.leaders": "Топ",
   "upgrader.title": "Апгрейдер", "upgrader.desc": "Обери шанс або множник. Налаштування збережеться для акаунта.",
   "upgrader.target": "Ціль", "upgrader.chance": "Шанс", "upgrader.customChance": "Шанс %", "upgrader.customMultiplier": "Ікс",
   "upgrader.presets": "Пресети", "upgrader.animation": "Анімація", "upgrader.slow": "Повільно", "upgrader.fast": "Швидко",
@@ -237,7 +235,6 @@ Object.assign(i18n.uk, {
   "invite.desc": "За кожного запрошеного друга ти отримаєш 1000 монет.",
   "invite.copied": "Посилання скопійовано",
   "shop.desc": "Telegram Stars відкривають цифрові функції: косметику, Premium, Season Pass і renew daily bonus. Шанси та виплати не змінюються.",
-  "shop.buy": "{stars} Stars",
   "shop.invoiceOpened": "Рахунок відкрито. Після оплати покупка застосовується в Mini App.",
   "shop.renewTitle": "Оновити щоденний бонус",
   "shop.renewDesc": "Скинути 24-годинний таймер бонусу. Монети напряму не купуються.",
@@ -263,8 +260,6 @@ Object.assign(i18n.en, {
   "roulette.spin": "Bet accepted. Waiting for the result.",
   "roulette.win": "Number {number}. Win {amount} {coin}.",
   "roulette.lose": "Number {number}. Missed.",
-  "invite.copied": "Link copied",
-  "shop.buy": "{stars} Stars",
   "shop.invoiceOpened": "Invoice opened. After payment, the item will be applied in the Mini App.",
   "shop.renewTitle": "Renew daily bonus",
   "shop.renewDesc": "Reset the 24h bonus timer. This does not buy coins directly.",
@@ -381,8 +376,7 @@ Object.assign(i18n.ru, {
   "ach.invite_3": "3 друга",
   "ach.invite_10": "10 друзей",
   "ach.all_games": "Испытай все игры",
-  "ach.total_bet_100k": "Оборот 100k",
-  "shop.desc": "Telegram Stars открывают цифровые функции: косметику, Premium, Season Pass и renew daily bonus. Шансы и выплаты не меняются."
+  "ach.total_bet_100k": "Оборот 100k"
 });
 
 Object.assign(i18n.uk, {
@@ -495,8 +489,7 @@ Object.assign(i18n.uk, {
   "ach.invite_3": "3 друзі",
   "ach.invite_10": "10 друзів",
   "ach.all_games": "Випробуй всі ігри",
-  "ach.total_bet_100k": "Оборот 100k",
-  "shop.desc": "Telegram Stars відкривають цифрові функції: косметику, Premium, Season Pass і renew daily bonus. Шанси та виплати не змінюються."
+  "ach.total_bet_100k": "Оборот 100k"
 });
 
 Object.assign(i18n.en, {
@@ -609,8 +602,7 @@ Object.assign(i18n.en, {
   "ach.invite_3": "3 friends",
   "ach.invite_10": "10 friends",
   "ach.all_games": "Try every game",
-  "ach.total_bet_100k": "100k wagered",
-  "shop.desc": "Telegram Stars unlock digital features: cosmetics, Premium, Season Pass and daily bonus renewal. Odds and payouts do not change."
+  "ach.total_bet_100k": "100k wagered"
 });
 
 if (tg) {
@@ -682,10 +674,6 @@ function playSound(name, options = {}) {
     for (let i = 0; i < count; i += 1) {
       playTone(260 + (i % 5) * 52, 0.03, { delay: i * 0.18, type: "square", volume: 0.018 });
     }
-  }
-  if (name === "plinko") {
-    playTone(720, 0.05, { type: "triangle", volume: 0.035 });
-    [0.45, 0.92, 1.36, 1.86, 2.28].forEach((delay, index) => playTone(520 + index * 42, 0.035, { delay, type: "square", volume: 0.022 }));
   }
   if (name === "slot") {
     playTone(640, 0.055, { type: "triangle", volume: 0.035 });
@@ -1156,13 +1144,8 @@ function bindPlinko() {
 
 function plinkoPegRowCenters() {
   const holder = $("#plinkoPegs");
-  const rows = $$("#plinkoPegs .peg-row");
-  if (holder && rows.length) {
-    // Row offsetTop is relative to the pegs band, which starts below the field top.
-    const bandTop = holder.offsetTop;
-    return rows.map((row) => bandTop + row.offsetTop + 4);
-  }
-  return Array.from({ length: 8 }, (_, index) => 50 + index * 35);
+  // Row offsetTop is relative to the pegs band, which starts below the field top.
+  return $$("#plinkoPegs .peg-row").map((row) => holder.offsetTop + row.offsetTop + 4);
 }
 
 function animatePlinkoBall(result) {
@@ -2353,10 +2336,10 @@ function openShare(game, multiplier, amount) {
   const link = currentInviteLink || (config.publicWebappUrl || "");
   const text = shareText(game, multiplier, amount);
   playSound("click");
-  if (link && tg?.openTelegramLink) {
-    tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`);
-  } else if (link) {
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`, "_blank");
+  if (link) {
+    const url = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+    if (tg?.openTelegramLink) tg.openTelegramLink(url);
+    else window.open(url, "_blank");
   } else if (navigator.share) {
     navigator.share({ text }).catch(() => {});
   }
@@ -2464,7 +2447,7 @@ function formatDateTime(value) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleString(currentLang === "en" ? "en-US" : currentLang === "uk" ? "uk-UA" : "ru-RU", {
+  return date.toLocaleString(localeTag(), {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",

@@ -143,27 +143,13 @@ def fail(message: str, status: int = 400):
 
 
 @api_bp.get("/me")
+@api_bp.get("/profile")
 @require_webapp_auth
 @rate_limit("me", "state_poll_limit", "state_poll_window_seconds")
 def me():
     return ok(
         {
             "user": g.user,
-            "stats": db.user_stats(g.user["telegram_id"]),
-            "bonus": db.daily_bonus_status(g.user["telegram_id"]),
-            "limits": {"min_bet": settings.min_bet, "max_bet": settings.max_bet},
-            "invite_link": make_invite_link(g.user["telegram_id"]),
-        }
-    )
-
-
-@api_bp.get("/profile")
-@require_webapp_auth
-@rate_limit("profile", "state_poll_limit", "state_poll_window_seconds")
-def profile():
-    return ok(
-        {
-            "user": db.get_user(g.user["telegram_id"]),
             "stats": db.user_stats(g.user["telegram_id"]),
             "bonus": db.daily_bonus_status(g.user["telegram_id"]),
             "limits": {"min_bet": settings.min_bet, "max_bet": settings.max_bet},

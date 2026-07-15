@@ -23,7 +23,6 @@ configure_logging(settings)
 logger = logging.getLogger(__name__)
 
 
-BOT_TOKEN = settings.bot_token
 ADMIN_ID = settings.admin_id
 COIN_NAME = settings.coin_name
 
