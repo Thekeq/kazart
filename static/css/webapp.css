@@ -1396,7 +1396,7 @@ input[type="range"] {
   gap: 8px;
 }
 
-.profile-grid div,
+.profile-grid > div,
 .settings-panel {
   padding: 12px;
   border: 1px solid var(--line);
@@ -1854,6 +1854,10 @@ body.cosmetic-gold-ball .ball {
 .leaderboard li:last-child { border-bottom: 0; }
 .leaderboard li.empty { display: block; color: var(--muted); }
 .leaderboard em { color: var(--muted); font-style: normal; }
+
+.profile-grid .progress-track {
+  margin-top: 8px;
+}
 
 .progress-track {
   height: 6px;
