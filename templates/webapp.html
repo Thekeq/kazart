@@ -250,6 +250,16 @@
     <section class="game-view" id="view-bonus">
       <div class="game-head"><h2 data-i18n="bonus.title">Bonus</h2><p data-i18n="bonus.desc">Забирай ежедневный бонус — серия дней увеличивает награду до 1900 монет.</p></div>
       <div class="bonus-panel"><strong id="dailyBonusAmount">1000 {{ coin_name }}</strong><span id="dailyBonusStatus">-</span><button id="claimDailyBonus" class="primary-action" type="button" data-i18n="bonus.claim">Забрать бонус</button></div>
+      <div class="wheel-panel">
+        <strong data-i18n="wheel.title">Колесо фортуны</strong>
+        <p data-i18n="wheel.desc">Бесплатный спин каждые 12 часов — даже с нулевым балансом.</p>
+        <div class="wheel-wrap">
+          <div class="wheel-pointer"></div>
+          <div class="wheel-disc" id="wheelDisc"></div>
+        </div>
+        <span id="wheelStatus" class="result-line">-</span>
+        <button id="wheelSpin" class="primary-action" type="button" data-i18n="wheel.spin" disabled>Крутить</button>
+      </div>
       <div class="invite-panel"><strong data-i18n="invite.title">Приглашай друзей</strong><p data-i18n="invite.desc">За каждого приглашенного друга ты получишь 1000 монет.</p><input id="inviteLink" readonly value=""><div class="invite-actions"><button id="shareInvite" class="primary-action compact-action" type="button" data-i18n="invite.share">Поделиться</button><button id="copyInvite" class="secondary-action" type="button" data-i18n="invite.copy">Скопировать ссылку</button></div></div>
     </section>
 

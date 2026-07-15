@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -15,6 +16,10 @@ DAILY_BONUS_STREAK_STEP = 150
 DAILY_BONUS_STREAK_CAP_DAY = 7
 REFERRAL_REWARD_AMOUNT = 1000
 WEEKLY_REWARD_AMOUNTS = (25000, 15000, 10000)
+WHEEL_COOLDOWN_HOURS = 12
+# Parallel tuples: prize amount per wheel segment and its draw weight (weights sum to 100).
+WHEEL_PRIZES = (100, 500, 200, 1200, 150, 800, 300, 2000)
+WHEEL_WEIGHTS = (26, 9, 20, 4, 22, 6, 11, 2)
 
 
 def daily_bonus_amount(streak_count: int) -> int:
@@ -45,8 +50,8 @@ ACHIEVEMENTS: tuple[dict[str, Any], ...] = (
     {"id": "big_x10", "target": 1, "reward": 500},
     {"id": "streak_7", "target": 7, "reward": 600},
     {"id": "streak_30", "target": 30, "reward": 2500},
-    {"id": "invite_3", "target": 3, "reward": 900},
-    {"id": "invite_10", "target": 10, "reward": 3000},
+    {"id": "invite_3", "target": 3, "reward": 5000},
+    {"id": "invite_10", "target": 10, "reward": 15000},
     {"id": "all_games", "target": 5, "reward": 400},
     {"id": "total_bet_100k", "target": 100_000, "reward": 1500},
 )
@@ -156,6 +161,7 @@ class DataBase:
                         daily_streak_count INTEGER NOT NULL DEFAULT 0,
                         best_daily_streak INTEGER NOT NULL DEFAULT 0,
                         quest_notify_period TEXT,
+                        last_wheel_at TEXT,
                         premium_until TEXT,
                         season_pass_until TEXT,
                         active_cosmetic TEXT,
@@ -189,6 +195,7 @@ class DataBase:
                 self._add_column(conn, user_columns, "users", "daily_streak_count", "INTEGER NOT NULL DEFAULT 0")
                 self._add_column(conn, user_columns, "users", "best_daily_streak", "INTEGER NOT NULL DEFAULT 0")
                 self._add_column(conn, user_columns, "users", "quest_notify_period", "TEXT")
+                self._add_column(conn, user_columns, "users", "last_wheel_at", "TEXT")
                 self._add_column(conn, user_columns, "users", "premium_until", "TEXT")
                 self._add_column(conn, user_columns, "users", "season_pass_until", "TEXT")
                 self._add_column(conn, user_columns, "users", "active_cosmetic", "TEXT")
@@ -533,6 +540,8 @@ class DataBase:
                     "place": place,
                     "amount": amount,
                     "weekly_won": int(row["weekly_won"]),
+                    "username": row["username"],
+                    "first_name": row["first_name"],
                 }
             )
         self.set_runtime_state(
@@ -540,6 +549,28 @@ class DataBase:
             {"week": prev_week_key, "paid_at": self.now(), "winners": winners},
         )
         return winners
+
+    def weekly_digest_recipients(self, exclude: Iterable[int] = ()) -> list[int]:
+        """Users who played last week, with notifications on, minus `exclude` (the winners)."""
+        now_dt = datetime.now(timezone.utc)
+        this_week_start = self._week_start(now_dt)
+        prev_week_start = this_week_start - timedelta(days=7)
+        excluded = {int(value) for value in exclude}
+        with self.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT DISTINCT g.telegram_id
+                FROM games_log g
+                JOIN users u ON u.telegram_id = g.telegram_id
+                WHERE g.created_at >= ? AND g.created_at < ?
+                  AND u.bonus_notify_enabled = 1 AND COALESCE(u.is_banned, 0) = 0
+                """,
+                (
+                    prev_week_start.isoformat(timespec="seconds"),
+                    this_week_start.isoformat(timespec="seconds"),
+                ),
+            ).fetchall()
+        return [int(row[0]) for row in rows if int(row[0]) not in excluded]
 
     def quests_ready_notification(self, telegram_id: int) -> int | None:
         """Once per day: number of completed-but-unclaimed quests when >= 3, else None."""
@@ -595,6 +626,32 @@ class DataBase:
                 "refunded_stars": refunded_stars,
             }
 
+    @staticmethod
+    def _cohort_retention(conn: sqlite3.Connection, now: datetime, day: int) -> dict[str, Any]:
+        """Share of users (rolling 7-day cohort) who played a game on day N after signup."""
+        start = (now - timedelta(days=day + 7)).isoformat(timespec="seconds")
+        end = (now - timedelta(days=day)).isoformat(timespec="seconds")
+        row = conn.execute(
+            f"""
+            SELECT COUNT(*) AS cohort,
+                   COALESCE(SUM(EXISTS(
+                       SELECT 1 FROM games_log g
+                       WHERE g.telegram_id = u.telegram_id
+                         AND date(g.created_at) = date(u.created_at, '+{int(day)} day')
+                   )), 0) AS returned
+            FROM users u
+            WHERE u.created_at >= ? AND u.created_at < ?
+            """,
+            (start, end),
+        ).fetchone()
+        cohort = int(row["cohort"] or 0)
+        returned = int(row["returned"] or 0)
+        return {
+            "cohort": cohort,
+            "returned": returned,
+            "rate": round(100 * returned / cohort) if cohort else None,
+        }
+
     def admin_overview(self) -> dict[str, Any]:
         now = datetime.now(timezone.utc)
         day_ago = (now - timedelta(hours=24)).isoformat(timespec="seconds")
@@ -610,6 +667,12 @@ class DataBase:
             stats["users_active_7d"] = conn.execute(
                 "SELECT COUNT(*) FROM users WHERE last_seen_at >= ?", (week_ago,)
             ).fetchone()[0]
+            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat(timespec="seconds")
+            stats["dau"] = conn.execute(
+                "SELECT COUNT(*) FROM users WHERE last_seen_at >= ?", (today_start,)
+            ).fetchone()[0]
+            stats["retention_d1"] = self._cohort_retention(conn, now, 1)
+            stats["retention_d7"] = self._cohort_retention(conn, now, 7)
             day_row = conn.execute(
                 """
                 SELECT COUNT(*) AS games, COALESCE(SUM(bet), 0) AS bets, COALESCE(SUM(win_amount), 0) AS payouts
@@ -621,6 +684,8 @@ class DataBase:
             stats["bets_24h"] = int(day_row["bets"] or 0)
             stats["payouts_24h"] = int(day_row["payouts"] or 0)
             stats["house_net_24h"] = stats["bets_24h"] - stats["payouts_24h"]
+            active = int(stats["users_active_24h"] or 0)
+            stats["games_per_active_24h"] = round(stats["games_24h"] / active, 1) if active else 0
             game_rows = conn.execute(
                 """
                 SELECT game, COUNT(*) AS count,
@@ -2217,3 +2282,105 @@ class DataBase:
                 "UPDATE users SET daily_reminder_sent_at = ? WHERE telegram_id = ?",
                 (self.now(), telegram_id),
             )
+
+    def users_due_streak_warning(self, limit: int = 200) -> list[dict[str, Any]]:
+        """Users whose daily streak (>=3) burns out within 4 hours and were not warned yet.
+
+        Reuses daily_reminder_sent_at as the marker: the regular +24h reminder stamps it
+        before the +44h warning window opens, so one column serves both notifications.
+        """
+        now_iso = self.now()
+        with self.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT telegram_id, daily_streak_count, last_daily_bonus_at
+                FROM users
+                WHERE bonus_notify_enabled = 1
+                  AND COALESCE(is_banned, 0) = 0
+                  AND COALESCE(daily_streak_count, 0) >= 3
+                  AND last_daily_bonus_at IS NOT NULL
+                  AND datetime(?) >= datetime(last_daily_bonus_at, '+44 hours')
+                  AND datetime(?) < datetime(last_daily_bonus_at, '+48 hours')
+                  AND (
+                    daily_reminder_sent_at IS NULL
+                    OR datetime(daily_reminder_sent_at) < datetime(last_daily_bonus_at, '+44 hours')
+                  )
+                LIMIT ?
+                """,
+                (now_iso, now_iso, limit),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def wheel_status(self, telegram_id: int) -> dict[str, Any]:
+        user = self.get_user(telegram_id)
+        if user is None:
+            raise BalanceError("User is not registered")
+        return self._wheel_snapshot(user.get("last_wheel_at"), datetime.now(timezone.utc))
+
+    @staticmethod
+    def _wheel_snapshot(last_iso: str | None, now_dt: datetime) -> dict[str, Any]:
+        last = DataBase.parse_time(last_iso)
+        next_at = None if last is None else last + timedelta(hours=WHEEL_COOLDOWN_HOURS)
+        available = next_at is None or now_dt >= next_at
+        return {
+            "available": available,
+            "next_at": None if available else next_at.isoformat(timespec="seconds"),
+            "seconds_left": 0 if available else max(0, int((next_at - now_dt).total_seconds())),
+            "prizes": list(WHEEL_PRIZES),
+        }
+
+    def claim_wheel(self, telegram_id: int) -> dict[str, Any]:
+        with self.user_lock(telegram_id), self.transaction() as conn:
+            user = conn.execute("SELECT * FROM users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            if user is None:
+                raise BalanceError("User is not registered")
+
+            now_dt = datetime.now(timezone.utc)
+            snapshot = self._wheel_snapshot(user["last_wheel_at"], now_dt)
+            if not snapshot["available"]:
+                snapshot.update({"claimed": False, "balance_after": int(user["balance"])})
+                return snapshot
+
+            point = secrets.randbelow(sum(WHEEL_WEIGHTS))
+            index = 0
+            threshold = 0
+            for i, weight in enumerate(WHEEL_WEIGHTS):
+                threshold += weight
+                if point < threshold:
+                    index = i
+                    break
+            amount = int(WHEEL_PRIZES[index])
+            balance_before = int(user["balance"])
+            balance_after = balance_before + amount
+            now = now_dt.isoformat(timespec="seconds")
+            conn.execute(
+                "UPDATE users SET balance = ?, last_wheel_at = ?, updated_at = ?, last_seen_at = ? WHERE telegram_id = ?",
+                (balance_after, now, now, now, telegram_id),
+            )
+            conn.execute(
+                """
+                INSERT INTO balance_events (
+                    telegram_id, amount, reason, balance_before, balance_after, meta_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    telegram_id,
+                    amount,
+                    "wheel_bonus",
+                    balance_before,
+                    balance_after,
+                    json.dumps({"prize_index": index}, ensure_ascii=False),
+                    now,
+                ),
+            )
+            return {
+                "claimed": True,
+                "available": False,
+                "amount": amount,
+                "prize_index": index,
+                "balance_after": balance_after,
+                "next_at": (now_dt + timedelta(hours=WHEEL_COOLDOWN_HOURS)).isoformat(timespec="seconds"),
+                "seconds_left": WHEEL_COOLDOWN_HOURS * 3600,
+                "prizes": list(WHEEL_PRIZES),
+            }

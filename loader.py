@@ -127,6 +127,26 @@ def notify_admin_error(summary: str) -> None:
         logger.exception("Failed to send admin error alert")
 
 
+def _send_weekly_digest(winners: list[dict]) -> None:
+    from services.broadcast import send_broadcast
+
+    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+    lines = ["🏁 Итоги недели в KAZart:"]
+    for winner in winners:
+        name = f"@{winner['username']}" if winner.get("username") else (winner.get("first_name") or winner["telegram_id"])
+        lines.append(
+            f"{medals.get(winner['place'], '🏆')} {name} — {winner['weekly_won']} {COIN_NAME} "
+            f"выигрыша (+{winner['amount']} приз)"
+        )
+    lines.append("")
+    lines.append("Новая гонка уже началась — топ-3 недели снова получат призы в понедельник. Удачи!")
+    recipients = db.weekly_digest_recipients(exclude=[winner["telegram_id"] for winner in winners])
+    if not recipients:
+        return
+    runtime.submit(send_broadcast(bot=bot, user_ids=recipients, text="\n".join(lines)))
+    logger.info("Weekly digest queued for %s users", len(recipients))
+
+
 def _notify_weekly_winners(winners: list[dict]) -> None:
     for winner in winners:
         place_emoji = {1: "🥇", 2: "🥈", 3: "🥉"}.get(winner["place"], "🏆")
@@ -164,6 +184,7 @@ def _run_maintenance(now: float, state: dict) -> None:
         if winners:
             logger.info("Weekly rewards paid: %s", winners)
             _notify_weekly_winners(winners)
+            _send_weekly_digest(winners)
     except Exception:
         logger.exception("Weekly rewards payout failed")
 

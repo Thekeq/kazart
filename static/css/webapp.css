@@ -1035,6 +1035,7 @@ input[type="range"] {
 }
 
 .bonus-panel,
+.wheel-panel,
 .invite-panel {
   display: grid;
   gap: 10px;
@@ -1051,6 +1052,58 @@ input[type="range"] {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+.wheel-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.wheel-wrap {
+  position: relative;
+  width: min(62vw, 230px);
+  margin: 4px auto;
+}
+
+.wheel-pointer {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 16px solid var(--gold);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .45));
+}
+
+.wheel-disc {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 4px solid rgba(244, 201, 93, .5);
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, .5), 0 10px 28px rgba(0, 0, 0, .35);
+  background: conic-gradient(
+    var(--panel-2) 0deg 45deg, rgba(244, 201, 93, .22) 45deg 90deg,
+    var(--panel-2) 90deg 135deg, rgba(244, 201, 93, .22) 135deg 180deg,
+    var(--panel-2) 180deg 225deg, rgba(244, 201, 93, .22) 225deg 270deg,
+    var(--panel-2) 270deg 315deg, rgba(244, 201, 93, .22) 315deg 360deg
+  );
+  transition: transform 3.6s cubic-bezier(.16, .84, .22, 1);
+}
+
+.wheel-disc span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: 0 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .leaders-period {

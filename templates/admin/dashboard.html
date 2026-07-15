@@ -11,6 +11,14 @@
   <div class="card {{ 'good' if stats.house_net_24h >= 0 else 'bad' }}">House net<strong>{{ '+' if stats.house_net_24h > 0 }}{{ stats.house_net_24h }}</strong><span class="sub">bets − payouts, 24h</span></div>
 </section>
 
+<h2>Retention</h2>
+<section class="grid">
+  <div class="card accent">DAU<strong>{{ stats.dau }}</strong><span class="sub">seen today, UTC</span></div>
+  <div class="card">D1 retention<strong>{{ stats.retention_d1.rate ~ '%' if stats.retention_d1.rate is not none else '—' }}</strong><span class="sub">{{ stats.retention_d1.returned }}/{{ stats.retention_d1.cohort }} signups played the next day</span></div>
+  <div class="card">D7 retention<strong>{{ stats.retention_d7.rate ~ '%' if stats.retention_d7.rate is not none else '—' }}</strong><span class="sub">{{ stats.retention_d7.returned }}/{{ stats.retention_d7.cohort }} signups played on day 7</span></div>
+  <div class="card">Games per active<strong>{{ stats.games_per_active_24h }}</strong><span class="sub">games / active user, 24h</span></div>
+</section>
+
 <h2>Games by type (7 days)</h2>
 {% if stats.by_game %}
 <div class="bars">

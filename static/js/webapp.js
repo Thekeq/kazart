@@ -125,6 +125,12 @@ const i18n = {
     "bonus.claim": "Забрать бонус",
     "bonus.ready": "Бонус доступен",
     "bonus.wait": "Следующий бонус через {time}",
+    "wheel.title": "Колесо фортуны",
+    "wheel.desc": "Бесплатный спин каждые 12 часов — даже с нулевым балансом.",
+    "wheel.spin": "Крутить",
+    "wheel.ready": "Спин доступен!",
+    "wheel.wait": "Следующий спин через {time}",
+    "wheel.won": "Выпало {amount} {coin}!",
     "bonus.claimed": "Бонус начислен: +{amount} {coin}",
     "invite.title": "Приглашай друзей",
     "invite.desc": "За каждого приглашенного друга ты получишь 1000 монет.",
@@ -178,6 +184,7 @@ i18n.en = { ...i18n.ru,
   "crash.history": "Past rounds", "crash.historyHint": "latest crash", "crash.leaderboard": "Top bets", "crash.waiting": "Waiting", "crash.accepting": "Betting", "crash.running": "Running",
   "roulette.desc": "Shared 37-number room. Hit the number and get x36.", "roulette.number": "Number 0-36", "roulette.bet": "Bet", "roulette.history": "History", "roulette.result": "Result", "roulette.rolling": "Wheel is spinning...",
   "bonus.title": "Bonus", "bonus.desc": "Claim the daily bonus — a day streak grows the reward up to 1,900 coins.", "bonus.claim": "Claim bonus", "bonus.ready": "Bonus ready", "bonus.wait": "Next bonus in {time}", "bonus.claimed": "Bonus credited: +{amount} {coin}",
+  "wheel.title": "Wheel of Fortune", "wheel.desc": "Free spin every 12 hours — even with a zero balance.", "wheel.spin": "Spin", "wheel.ready": "Spin available!", "wheel.wait": "Next spin in {time}", "wheel.won": "You won {amount} {coin}!",
   "invite.title": "Invite friends", "invite.desc": "Get 1000 coins for every invited friend.", "invite.copy": "Copy link", "invite.copied": "Link copied",
   "shop.title": "Shop", "shop.desc": "Telegram Stars unlock digital features: cosmetics, Premium, Season Pass and daily bonus renewal. Odds and payouts do not change.", "leaders.title": "Leaderboard", "leaders.desc": "Top 100 users by balance.", "leaders.refresh": "Refresh"
 };
@@ -230,6 +237,12 @@ Object.assign(i18n.uk, {
   "bonus.desc": "Забирай щоденний бонус — серія днів збільшує нагороду до 1900 монет.",
   "bonus.ready": "Бонус доступний",
   "bonus.wait": "Наступний бонус через {time}",
+  "wheel.title": "Колесо фортуни",
+  "wheel.desc": "Безкоштовний спін кожні 12 годин — навіть з нульовим балансом.",
+  "wheel.spin": "Крутити",
+  "wheel.ready": "Спін доступний!",
+  "wheel.wait": "Наступний спін через {time}",
+  "wheel.won": "Випало {amount} {coin}!",
   "bonus.claimed": "Бонус нараховано: +{amount} {coin}",
   "invite.title": "Запрошуй друзів",
   "invite.desc": "За кожного запрошеного друга ти отримаєш 1000 монет.",
@@ -820,6 +833,7 @@ async function loadMe() {
     $("#profileInviteLink").value = currentInviteLink;
     applyUpgraderSettingsFromUser(body.user);
     renderBonus(body.bonus);
+    if (body.wheel) renderWheel(body.wheel);
     renderProfile();
     maybeShowOnboarding(body.user);
     loadShopPackages();
@@ -1857,6 +1871,69 @@ function shareInviteLink() {
   if (tg?.openTelegramLink) tg.openTelegramLink(url); else window.open(url, "_blank");
 }
 
+let wheelSync = null;
+let wheelRotation = 0;
+let wheelSpinning = false;
+
+function buildWheelDisc(prizes) {
+  const disc = $("#wheelDisc");
+  if (!disc || disc.childElementCount === prizes.length) return;
+  const step = 360 / prizes.length;
+  disc.innerHTML = prizes.map((amount, index) => `
+    <span style="transform: rotate(${index * step + step / 2}deg) translate(-50%, -78px)">${formatNumber(amount)}</span>
+  `).join("");
+}
+
+function renderWheel(wheel) {
+  if (!wheel || wheelSpinning) return;
+  wheelSync = wheel;
+  buildWheelDisc(wheel.prizes || []);
+  const status = $("#wheelStatus");
+  status.classList.remove("win", "lose");
+  status.textContent = wheel.available ? t("wheel.ready") : t("wheel.wait", { time: fmtTime(wheel.seconds_left) });
+  $("#wheelSpin").disabled = !wheel.available;
+}
+
+async function spinWheel() {
+  if (wheelSpinning) return;
+  const button = $("#wheelSpin");
+  wheelSpinning = true;
+  setBusy(button, true);
+  try {
+    const body = await api("/api/wheel/spin", { method: "POST" });
+    const wheel = body.wheel;
+    if (!wheel.claimed) {
+      wheelSpinning = false;
+      setBusy(button, false);
+      renderWheel(wheel);
+      return;
+    }
+    playSound("spin", { duration: 3600 });
+    const disc = $("#wheelDisc");
+    const step = wheel.prizes?.length ? 360 / wheel.prizes.length : 45;
+    const target = wheel.prize_index * step + step / 2;
+    wheelRotation += 4 * 360 + ((360 - target) - (wheelRotation % 360) + 360) % 360;
+    disc.style.transform = `rotate(${wheelRotation}deg)`;
+    setTimeout(() => {
+      playSound("win");
+      if (body.user) setBalance(body.user.balance);
+      showResult($("#wheelStatus"), t("wheel.won", { amount: formatNumber(wheel.amount), coin: coinName }), true);
+      button.disabled = true;
+      wheelSpinning = false;
+      setBusy(button, false);
+      wheelSync = { ...wheel, claimed: false };
+    }, 3700);
+  } catch (error) {
+    wheelSpinning = false;
+    setBusy(button, false);
+    showResult($("#wheelStatus"), error.message, false);
+  }
+}
+
+function bindWheel() {
+  $("#wheelSpin")?.addEventListener("click", spinWheel);
+}
+
 function renderBonus(bonus) {
   if (!bonus) return;
   bonusSync = {
@@ -2253,6 +2330,7 @@ async function loadProfile() {
     appLimits = body.limits || appLimits;
     if (body.user) setBalance(body.user.balance);
     if (body.bonus) renderBonus(body.bonus);
+    if (body.wheel) renderWheel(body.wheel);
     $("#profileInviteLink").value = body.invite_link || "";
     renderProfile();
   } catch (error) {
@@ -2437,6 +2515,8 @@ function balanceEventTitle(value) {
     stars_shop: "Stars shop",
     stars_refund: "Stars refund",
     admin_adjustment: "Admin adjustment",
+    wheel_bonus: "Wheel of fortune",
+    weekly_reward: "Weekly top reward",
     admin_ban: "Account block",
     admin_unban: "Account unblock",
   };
@@ -2475,6 +2555,7 @@ bindPlinko();
 bindCrash();
 bindRoulette();
 bindBonusInvite();
+bindWheel();
 bindLeaderboard();
 bindHistory();
 bindProfile();

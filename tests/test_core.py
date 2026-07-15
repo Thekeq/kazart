@@ -529,5 +529,134 @@ class HistoryPaginationTests(unittest.TestCase):
         self.assertEqual(stamps, sorted(stamps, reverse=True))
 
 
+class WheelTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.db = DataBase(":memory:")
+        self.db.ensure_user(tg_user(1701, "spinner"))
+
+    def tearDown(self) -> None:
+        self.db.close()
+
+    def test_prize_tables_are_consistent(self) -> None:
+        from db import WHEEL_PRIZES, WHEEL_WEIGHTS
+
+        self.assertEqual(len(WHEEL_PRIZES), len(WHEEL_WEIGHTS))
+        self.assertTrue(all(amount > 0 for amount in WHEEL_PRIZES))
+        self.assertTrue(all(weight > 0 for weight in WHEEL_WEIGHTS))
+
+    def test_spin_credits_prize_and_blocks_until_cooldown(self) -> None:
+        from db import WHEEL_PRIZES
+
+        before = self.db.get_user(1701)["balance"]
+        result = self.db.claim_wheel(1701)
+
+        self.assertTrue(result["claimed"])
+        self.assertIn(result["amount"], WHEEL_PRIZES)
+        self.assertEqual(result["amount"], WHEEL_PRIZES[result["prize_index"]])
+        self.assertEqual(result["balance_after"], before + result["amount"])
+        self.assertEqual(self.db.get_user(1701)["balance"], before + result["amount"])
+
+        second = self.db.claim_wheel(1701)
+        self.assertFalse(second["claimed"])
+        self.assertEqual(second["balance_after"], before + result["amount"])
+        self.assertFalse(self.db.wheel_status(1701)["available"])
+
+    def test_spin_available_again_after_cooldown(self) -> None:
+        self.db.claim_wheel(1701)
+        with self.db.transaction() as conn:
+            conn.execute("UPDATE users SET last_wheel_at = ?", (iso_ago(hours=13),))
+
+        self.assertTrue(self.db.wheel_status(1701)["available"])
+        self.assertTrue(self.db.claim_wheel(1701)["claimed"])
+
+
+class StreakWarningTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.db = DataBase(":memory:")
+        self.db.ensure_user(tg_user(1801, "streaker"))
+
+    def tearDown(self) -> None:
+        self.db.close()
+
+    def _set_streak_state(self, streak: int, claimed_hours_ago: float, reminded_hours_ago: float | None) -> None:
+        with self.db.transaction() as conn:
+            conn.execute(
+                "UPDATE users SET daily_streak_count = ?, last_daily_bonus_at = ?, daily_reminder_sent_at = ?",
+                (
+                    streak,
+                    iso_ago(hours=claimed_hours_ago),
+                    iso_ago(hours=reminded_hours_ago) if reminded_hours_ago is not None else None,
+                ),
+            )
+
+    def test_due_inside_burn_window_once(self) -> None:
+        self._set_streak_state(streak=5, claimed_hours_ago=45, reminded_hours_ago=20)
+
+        due = self.db.users_due_streak_warning()
+        self.assertEqual([row["telegram_id"] for row in due], [1801])
+        self.assertEqual(due[0]["daily_streak_count"], 5)
+
+        self.db.mark_daily_reminder_sent(1801)
+        self.assertEqual(self.db.users_due_streak_warning(), [])
+
+    def test_not_due_outside_window_or_low_streak(self) -> None:
+        self._set_streak_state(streak=5, claimed_hours_ago=30, reminded_hours_ago=None)
+        self.assertEqual(self.db.users_due_streak_warning(), [])
+
+        self._set_streak_state(streak=2, claimed_hours_ago=45, reminded_hours_ago=None)
+        self.assertEqual(self.db.users_due_streak_warning(), [])
+
+        self._set_streak_state(streak=5, claimed_hours_ago=49, reminded_hours_ago=None)
+        self.assertEqual(self.db.users_due_streak_warning(), [])
+
+    def test_opt_out_respected(self) -> None:
+        self._set_streak_state(streak=5, claimed_hours_ago=45, reminded_hours_ago=None)
+        self.db.set_bonus_notify_enabled(1801, False)
+        self.assertEqual(self.db.users_due_streak_warning(), [])
+
+
+class WeeklyDigestTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.db = DataBase(":memory:")
+        for uid, name in ((1901, "winner"), (1902, "player"), (1903, "quiet"), (1904, "optout")):
+            self.db.ensure_user(tg_user(uid, name))
+
+    def tearDown(self) -> None:
+        self.db.close()
+
+    def test_recipients_are_last_week_players_minus_winners_and_optouts(self) -> None:
+        for uid in (1901, 1902, 1904):
+            self.db.record_game(uid, "dice", bet=100, multiplier=2.0, win_amount=200)
+        with self.db.transaction() as conn:
+            conn.execute("UPDATE games_log SET created_at = ?", (iso_ago(days=3),))
+        self.db.set_bonus_notify_enabled(1904, False)
+
+        recipients = self.db.weekly_digest_recipients(exclude=[1901])
+
+        self.assertEqual(recipients, [1902])
+
+
+class RetentionMetricsTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.db = DataBase(":memory:")
+
+    def tearDown(self) -> None:
+        self.db.close()
+
+    def test_d1_retention_counts_next_day_players(self) -> None:
+        self.db.ensure_user(tg_user(2001, "returned"))
+        self.db.ensure_user(tg_user(2002, "churned"))
+        self.db.record_game(2001, "dice", bet=10, multiplier=0.0, win_amount=0)
+        with self.db.transaction() as conn:
+            conn.execute("UPDATE users SET created_at = ?", (iso_ago(days=3),))
+            conn.execute("UPDATE games_log SET created_at = ?", (iso_ago(days=2),))
+
+        stats = self.db.admin_overview()
+
+        self.assertEqual(stats["retention_d1"], {"cohort": 2, "returned": 1, "rate": 50})
+        self.assertIn("dau", stats)
+        self.assertIn("games_per_active_24h", stats)
+
+
 if __name__ == "__main__":
     unittest.main()

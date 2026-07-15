@@ -154,8 +154,21 @@ def me():
             "bonus": db.daily_bonus_status(g.user["telegram_id"]),
             "limits": {"min_bet": settings.min_bet, "max_bet": settings.max_bet},
             "invite_link": make_invite_link(g.user["telegram_id"]),
+            "wheel": db.wheel_status(g.user["telegram_id"]),
         }
     )
+
+
+@api_bp.post("/wheel/spin")
+@require_webapp_auth
+@require_legal_acceptance
+@rate_limit("wheel_spin", "bonus_claim_limit", "bonus_claim_window_seconds")
+def wheel_spin():
+    try:
+        result = db.claim_wheel(g.user["telegram_id"])
+    except BalanceError as exc:
+        return fail(str(exc))
+    return ok({"wheel": result, "user": db.get_user(g.user["telegram_id"])})
 
 
 @api_bp.get("/history")
