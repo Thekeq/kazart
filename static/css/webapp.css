@@ -1170,6 +1170,51 @@ input[type="range"] {
   font-weight: 500;
 }
 
+.week-prize-hint[hidden] { display: none; }
+
+.maintenance-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(10, 11, 14, .82);
+  backdrop-filter: blur(6px);
+}
+
+.maintenance-overlay[hidden] { display: none; }
+
+.maintenance-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: 300px;
+  padding: 26px 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #15171d;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.maintenance-card strong { font-size: 16px; }
+.maintenance-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+.maintenance-spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid rgba(244, 201, 93, .2);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: maintenance-spin 0.9s linear infinite;
+}
+
+@keyframes maintenance-spin {
+  to { transform: rotate(360deg); }
+}
+
 .bonus-panel strong {
   font-size: 28px;
   line-height: 1;

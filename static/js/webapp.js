@@ -295,6 +295,9 @@ Object.assign(i18n.en, {
 
 Object.assign(i18n.ru, {
   "auth.expired": "Сессия Mini App устарела. Закрой и открой приложение из бота заново.",
+  "maintenance.title": "Сервер обновляется",
+  "maintenance.desc": "Пара секунд — и продолжим. Приложение переподключится само.",
+  "maintenance.short": "Сервер обновляется, подожди немного…",
   "crash.crashedStatus": "Краш",
   "roulette.resultStatus": "Результат",
   "dice.multiplier": "Множитель",
@@ -409,6 +412,9 @@ Object.assign(i18n.ru, {
 
 Object.assign(i18n.uk, {
   "auth.expired": "Сесія Mini App застаріла. Закрий і відкрий застосунок з бота знову.",
+  "maintenance.title": "Сервер оновлюється",
+  "maintenance.desc": "Кілька секунд — і продовжимо. Застосунок перепідключиться сам.",
+  "maintenance.short": "Сервер оновлюється, зачекай трохи…",
   "crash.crashedStatus": "Краш",
   "roulette.resultStatus": "Результат",
   "dice.multiplier": "Множник",
@@ -523,6 +529,9 @@ Object.assign(i18n.uk, {
 
 Object.assign(i18n.en, {
   "auth.expired": "The Mini App session expired. Close and reopen the app from the bot.",
+  "maintenance.title": "Server is updating",
+  "maintenance.desc": "Just a few seconds — the app will reconnect automatically.",
+  "maintenance.short": "Server is updating, hang on…",
   "crash.crashedStatus": "Crashed",
   "roulette.resultStatus": "Result",
   "dice.multiplier": "Multiplier",
@@ -817,11 +826,39 @@ function showAuthExpired() {
   warning.hidden = false;
 }
 
+let maintenanceTimer = null;
+
+function enterMaintenance() {
+  const overlay = $("#maintenanceOverlay");
+  if (!overlay || !overlay.hidden) return;
+  overlay.hidden = false;
+  maintenanceTimer = setInterval(async () => {
+    try {
+      const response = await fetch("/telegram/health", { cache: "no-store" });
+      if (response.ok) {
+        clearInterval(maintenanceTimer);
+        overlay.hidden = true;
+        loadMe();
+      }
+    } catch { /* server still down, keep polling */ }
+  }, 3000);
+}
+
 async function api(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": initData, ...(options.headers || {}) }
-  });
+  let response;
+  try {
+    response = await fetch(path, {
+      ...options,
+      headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": initData, ...(options.headers || {}) }
+    });
+  } catch (error) {
+    enterMaintenance();
+    throw new Error(t("maintenance.short"));
+  }
+  if ([502, 503, 504].includes(response.status)) {
+    enterMaintenance();
+    throw new Error(t("maintenance.short"));
+  }
   const body = await response.json().catch(() => ({}));
   if (!response.ok || body.ok === false) {
     if (response.status === 401 && initData) showAuthExpired();
@@ -2116,8 +2153,11 @@ function renderRetention(retention) {
   renderQuests(lastRetention);
   renderAchievements(lastRetention);
   renderCosmetics(lastRetention);
+  const season = lastRetention.season || {};
   const claimable = (lastRetention.quests || []).some((q) => q.complete && !q.claimed)
-    || (lastRetention.achievements || []).some((a) => a.complete && !a.claimed);
+    || (lastRetention.achievements || []).some((a) => a.complete && !a.claimed)
+    || (season.track || []).some((row) => row.unlocked
+      && (!row.free.claimed || (season.pass_active && !row.premium.claimed)));
   $('[data-open-view="retention"]')?.classList.toggle("has-claim", claimable);
 }
 
