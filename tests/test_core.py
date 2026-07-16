@@ -627,8 +627,10 @@ class WeeklyDigestTests(unittest.TestCase):
     def test_recipients_are_last_week_players_minus_winners_and_optouts(self) -> None:
         for uid in (1901, 1902, 1904):
             self.db.record_game(uid, "dice", bet=100, multiplier=2.0, win_amount=200)
+        week_start = DataBase._week_start(datetime.now(timezone.utc))
+        last_week = (week_start - timedelta(days=3)).isoformat(timespec="seconds")
         with self.db.transaction() as conn:
-            conn.execute("UPDATE games_log SET created_at = ?", (iso_ago(days=3),))
+            conn.execute("UPDATE games_log SET created_at = ?", (last_week,))
         self.db.set_bonus_notify_enabled(1904, False)
 
         recipients = self.db.weekly_digest_recipients(exclude=[1901])

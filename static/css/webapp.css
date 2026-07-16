@@ -174,6 +174,25 @@ button:active:not(:disabled) { transform: scale(.96); }
   outline: none;
 }
 
+.icon-action.active,
+.balance-pill.active {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(244, 201, 93, .12);
+}
+
+.icon-action.has-claim::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+
 .quick-icon {
   width: 20px;
   height: 20px;
@@ -1112,6 +1131,9 @@ input[type="range"] {
 }
 
 .week-prize-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0 0 10px;
   padding: 9px 12px;
   border: 1px solid rgba(244, 201, 93, .26);
@@ -1121,6 +1143,31 @@ input[type="range"] {
   font-size: 12px;
   font-weight: 700;
   line-height: 1.4;
+}
+
+.week-prize-hint span { flex: 1; }
+
+.info-icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(244, 201, 93, .5);
+  border-radius: 50%;
+  background: none;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.week-prize-hint.week-info {
+  display: block;
+  border-color: var(--line);
+  background: rgba(255, 255, 255, .04);
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .bonus-panel strong {

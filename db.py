@@ -945,6 +945,15 @@ class DataBase:
             stats["house_net_24h"] = stats["bets_24h"] - stats["payouts_24h"]
             active = int(stats["users_active_24h"] or 0)
             stats["games_per_active_24h"] = round(stats["games_24h"] / active, 1) if active else 0
+            hour_rows = conn.execute(
+                """
+                SELECT strftime('%Y-%m-%dT%H', created_at) AS hour_key,
+                       COUNT(DISTINCT telegram_id) AS users
+                FROM games_log WHERE created_at >= ?
+                GROUP BY hour_key
+                """,
+                (day_ago,),
+            ).fetchall()
             game_rows = conn.execute(
                 """
                 SELECT game, COUNT(*) AS count,
@@ -967,6 +976,18 @@ class DataBase:
                 "share": round(int(row["count"]) / top_count * 100) if top_count else 0,
             }
             for row in game_rows
+        ]
+        by_hour = {row["hour_key"]: int(row["users"]) for row in hour_rows}
+        hour_start = now.replace(minute=0, second=0, microsecond=0)
+        buckets = [hour_start - timedelta(hours=offset) for offset in range(23, -1, -1)]
+        peak = max([by_hour.get(h.strftime("%Y-%m-%dT%H"), 0) for h in buckets] + [1])
+        stats["hourly_active"] = [
+            {
+                "label": h.strftime("%H"),
+                "users": by_hour.get(h.strftime("%Y-%m-%dT%H"), 0),
+                "pct": round(100 * by_hour.get(h.strftime("%Y-%m-%dT%H"), 0) / peak),
+            }
+            for h in buckets
         ]
         return stats
 

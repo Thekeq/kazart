@@ -19,6 +19,16 @@
   <div class="card">Games per active<strong>{{ stats.games_per_active_24h }}</strong><span class="sub">games / active user, 24h</span></div>
 </section>
 
+<h2>Players online by hour <span class="muted-inline">(playing, last 24h, UTC)</span></h2>
+<div class="hour-chart">
+  {% for h in stats.hourly_active %}
+  <div class="hour-col" title="{{ h.label }}:00 UTC — {{ h.users }} players">
+    <div class="hour-bar-wrap"><div class="hour-bar" style="height: {{ h.pct if h.users else 0 }}%">{% if h.users %}<b>{{ h.users }}</b>{% endif %}</div></div>
+    <span>{{ h.label }}</span>
+  </div>
+  {% endfor %}
+</div>
+
 <h2>Games by type (7 days)</h2>
 {% if stats.by_game %}
 <div class="bars">

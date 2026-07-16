@@ -86,6 +86,7 @@ const i18n = {
     "dice.lose": "Проигрыш. Выпало {roll}.",
     "plinko.desc": "Центр выпадает чаще и платит меньше. Края редкие.",
     "plinko.risk": "Риск",
+    "plinko.play": "Бросить",
     "plinko.drop": "Шарик падает...",
     "plinko.result": "{risk}: слот x{multiplier}. Выплата {amount} {coin}.",
     "risk.low": "Низкий",
@@ -216,6 +217,7 @@ Object.assign(i18n.uk, {
   "dice.win": "Виграш {amount} {coin}. Випало {roll}.",
   "dice.lose": "Програш. Випало {roll}.",
   "plinko.desc": "Центр випадає частіше і платить менше. Краї рідкісні.",
+  "plinko.play": "Кинути",
   "plinko.drop": "Кулька падає...",
   "plinko.result": "{risk}: слот x{multiplier}. Виплата {amount} {coin}.",
   "risk.degen": "Азарт",
@@ -272,6 +274,7 @@ Object.assign(i18n.en, {
   "upgrader.win": "Upgrade succeeded: payout {amount} {coin}",
   "upgrader.lose": "Upgrade failed",
   "dice.chance": "Chance",
+  "plinko.play": "Drop",
   "plinko.drop": "The ball is dropping...",
   "plinko.result": "{risk}: slot x{multiplier}. Payout {amount} {coin}.",
   "crash.adding": "Adding bet...",
@@ -318,6 +321,7 @@ Object.assign(i18n.ru, {
   "leaders.allTime": "За всё время",
   "leaders.week": "Неделя",
   "leaders.weekHint": "Топ-3 недели получают 25 000 / 15 000 / 10 000 монет каждый понедельник.",
+  "leaders.weekInfo": "Недельный рейтинг — это сумма выигрышей за неделю, а не баланс. Отсчёт идёт с понедельника 00:00 UTC и каждую неделю обнуляется, поэтому шанс попасть в топ есть у всех. Призы топ-3 начисляются в понедельник.",
   "leaders.empty": "На этой неделе ещё никто не выигрывал — стань первым!",
   "shop.item.daily_bonus_renew.title": "Обновить ежедневный бонус",
   "shop.item.daily_bonus_renew.desc": "Сбросить 24-часовой таймер бонуса. Монеты напрямую не покупаются.",
@@ -431,6 +435,7 @@ Object.assign(i18n.uk, {
   "leaders.allTime": "За весь час",
   "leaders.week": "Тиждень",
   "leaders.weekHint": "Топ-3 тижня отримують 25 000 / 15 000 / 10 000 монет щопонеділка.",
+  "leaders.weekInfo": "Тижневий рейтинг — це сума виграшів за тиждень, а не баланс. Відлік іде з понеділка 00:00 UTC і щотижня обнуляється, тому шанс потрапити в топ є в усіх. Призи топ-3 нараховуються щопонеділка.",
   "leaders.empty": "Цього тижня ще ніхто не вигравав — стань першим!",
   "shop.item.daily_bonus_renew.title": "Оновити щоденний бонус",
   "shop.item.daily_bonus_renew.desc": "Скинути 24-годинний таймер бонусу. Монети напряму не купуються.",
@@ -544,6 +549,7 @@ Object.assign(i18n.en, {
   "leaders.allTime": "All time",
   "leaders.week": "This week",
   "leaders.weekHint": "Weekly top-3 get 25,000 / 15,000 / 10,000 coins every Monday.",
+  "leaders.weekInfo": "The weekly rating is the sum of winnings this week, not your balance. It counts from Monday 00:00 UTC and resets every week, so everyone has a shot at the top. Top-3 prizes are paid out on Monday.",
   "leaders.empty": "No winners this week yet — be the first!",
   "shop.item.daily_bonus_renew.title": "Renew daily bonus",
   "shop.item.daily_bonus_renew.desc": "Reset the 24h bonus timer. This does not buy coins directly.",
@@ -742,6 +748,7 @@ function applyLanguage(lang) {
   renderRouletteLeaderboard(lastRouletteLeaders);
   renderHistory(lastHistory);
   renderRetention(lastRetention);
+  if (wheelSync) renderWheel(wheelSync);
   if (lastShopPackages.length) renderShopPackages(lastShopPackages, false);
   renderProfile();
   if ($("#rouletteSelectionText")) updateRouletteSummary();
@@ -867,6 +874,7 @@ function openView(viewName) {
   activeView = viewName;
   playSound("click");
   $$(".tab").forEach((item) => item.classList.toggle("active", item.dataset.tab === viewName));
+  $$("[data-open-view]").forEach((item) => item.classList.toggle("active", item.dataset.openView === viewName));
   $$(".game-view").forEach((view) => view.classList.remove("active"));
   target.classList.add("active");
   syncLivePolling();
@@ -2025,11 +2033,17 @@ async function loadLeaderboard() {
 
 function bindLeaderboard() {
   $("#refreshLeaders").addEventListener("click", loadLeaderboard);
+  $("#leadersInfoBtn")?.addEventListener("click", () => {
+    playSound("click");
+    const info = $("#leadersWeekInfo");
+    info.hidden = !info.hidden;
+  });
   $$("#leadersPeriod button").forEach((button) => button.addEventListener("click", () => {
     playSound("click");
     leadersPeriod = button.dataset.period;
     $$("#leadersPeriod button").forEach((item) => item.classList.toggle("active", item === button));
     $("#leadersWeekHint").hidden = leadersPeriod !== "week";
+    $("#leadersWeekInfo").hidden = true;
     loadLeaderboard();
   }));
 }
@@ -2102,6 +2116,9 @@ function renderRetention(retention) {
   renderQuests(lastRetention);
   renderAchievements(lastRetention);
   renderCosmetics(lastRetention);
+  const claimable = (lastRetention.quests || []).some((q) => q.complete && !q.claimed)
+    || (lastRetention.achievements || []).some((a) => a.complete && !a.claimed);
+  $('[data-open-view="retention"]')?.classList.toggle("has-claim", claimable);
 }
 
 function progressBar(progress, target) {

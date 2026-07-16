@@ -163,7 +163,7 @@
           {% endfor %}
         </div></div>
       </div>
-      <button id="playPlinko" class="primary-action compact-action" type="button">Drop</button>
+      <button id="playPlinko" class="primary-action compact-action" type="button" data-i18n="plinko.play">Drop</button>
       <div class="plinko-field" id="plinkoField">
         <div class="plinko-pegs" id="plinkoPegs"></div>
         <div class="ball" id="plinkoBall"></div>
@@ -275,7 +275,8 @@
         <button type="button" class="active" data-period="all" data-i18n="leaders.allTime">За всё время</button>
         <button type="button" data-period="week" data-i18n="leaders.week">Неделя</button>
       </div>
-      <p class="week-prize-hint" id="leadersWeekHint" data-i18n="leaders.weekHint" hidden>Топ-3 недели получают 25 000 / 15 000 / 10 000 монет каждый понедельник.</p>
+      <p class="week-prize-hint" id="leadersWeekHint" hidden><span data-i18n="leaders.weekHint">Топ-3 недели получают 25 000 / 15 000 / 10 000 монет каждый понедельник.</span><button id="leadersInfoBtn" class="info-icon" type="button" aria-label="How the weekly rating works">i</button></p>
+      <p class="week-prize-hint week-info" id="leadersWeekInfo" data-i18n="leaders.weekInfo" hidden>Недельный рейтинг — это сумма выигрышей за неделю, а не баланс.</p>
       <button id="refreshLeaders" class="secondary-action" type="button" data-i18n="leaders.refresh">Обновить</button>
       <ol class="leaders-list" id="leadersList"></ol>
     </section>
