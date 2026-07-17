@@ -587,6 +587,10 @@ input[type="range"] {
   gap: 8px;
 }
 
+.upgrader-presets-block { grid-column: 1 / -1; }
+.upgrader-presets { grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.upgrader-presets button { padding: 0 4px; }
+
 .speed-tabs {
   grid-template-columns: repeat(2, 1fr);
 }

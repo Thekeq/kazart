@@ -63,12 +63,10 @@ const i18n = {
     "legal.point3": "Используй только если тебе 18+.",
     "legal.accept": "Понимаю и принимаю",
     "upgrader.title": "Апгрейдер",
-    "upgrader.desc": "Выбери шанс или множитель. Настройка сохранится для твоего аккаунта.",
+    "upgrader.desc": "Выбери икс — шанс пересчитается сам и сохранится для твоего аккаунта.",
     "upgrader.target": "Цель",
     "upgrader.chance": "Шанс",
-    "upgrader.customChance": "Шанс %",
     "upgrader.customMultiplier": "Икс",
-    "upgrader.presets": "Пресеты",
     "upgrader.animation": "Анимация",
     "upgrader.slow": "Медленно",
     "upgrader.fast": "Быстро",
@@ -158,9 +156,9 @@ const i18n = {
 };
 
 i18n.uk = { ...i18n.ru,
-  "upgrader.title": "Апгрейдер", "upgrader.desc": "Обери шанс або множник. Налаштування збережеться для акаунта.",
-  "upgrader.target": "Ціль", "upgrader.chance": "Шанс", "upgrader.customChance": "Шанс %", "upgrader.customMultiplier": "Ікс",
-  "upgrader.presets": "Пресети", "upgrader.animation": "Анімація", "upgrader.slow": "Повільно", "upgrader.fast": "Швидко",
+  "upgrader.title": "Апгрейдер", "upgrader.desc": "Обери ікс — шанс перерахується сам і збережеться для акаунта.",
+  "upgrader.target": "Ціль", "upgrader.chance": "Шанс", "upgrader.customMultiplier": "Ікс",
+  "upgrader.animation": "Анімація", "upgrader.slow": "Повільно", "upgrader.fast": "Швидко",
   "dice.desc": "Обери ставку, шанс і сторону.", "dice.under": "Менше", "dice.over": "Більше", "dice.play": "Кинути",
   "plinko.risk": "Ризик", "risk.low": "Низький", "risk.medium": "Середній", "risk.high": "Високий",
   "crash.status": "Статус", "crash.countdown": "До старту", "crash.players": "Гравців", "crash.bet": "Поставити", "crash.cashout": "Забрати",
@@ -180,9 +178,9 @@ i18n.en = { ...i18n.ru,
   "legal.point2": "No cash out or prizes.",
   "legal.point3": "Use only if you are 18+.",
   "legal.accept": "I understand and agree",
-  "upgrader.title": "Upgrader", "upgrader.desc": "Choose chance or multiplier. The target is saved to your account.",
-  "upgrader.target": "Target", "upgrader.chance": "Chance", "upgrader.customChance": "Chance %", "upgrader.customMultiplier": "X",
-  "upgrader.presets": "Presets", "upgrader.animation": "Animation", "upgrader.slow": "Slow", "upgrader.fast": "Fast",
+  "upgrader.title": "Upgrader", "upgrader.desc": "Pick a multiplier — the chance updates automatically and is saved to your account.",
+  "upgrader.target": "Target", "upgrader.chance": "Chance", "upgrader.customMultiplier": "X",
+  "upgrader.animation": "Animation", "upgrader.slow": "Slow", "upgrader.fast": "Fast",
   "dice.desc": "Choose bet, chance and side.", "dice.under": "Under", "dice.over": "Over", "dice.play": "Roll",
   "dice.roll": "Rolling a number from 1 to 100...", "dice.win": "Win {amount} {coin}. Roll {roll}.", "dice.lose": "Loss. Roll {roll}.",
   "plinko.desc": "Middle slots hit more often and pay less. Edges are rare.", "plinko.risk": "Risk", "risk.low": "Low", "risk.medium": "Medium", "risk.high": "High", "risk.degen": "Degen",
@@ -1014,12 +1012,19 @@ function multiplierFromChance(chance) {
   return 96 / Math.min(75, Math.max(0.01, Number(chance || 1)));
 }
 
+function syncUpgraderPresets(multiplier) {
+  $$("#upgraderMultipliers button").forEach((button) => {
+    button.classList.toggle("active", Number(button.dataset.multiplier) === Number(multiplier));
+  });
+}
+
 function applyUpgraderSettingsFromUser(user) {
   const multiplier = Number(user?.upgrader_multiplier || 1.5);
   const chance = Number(user?.upgrader_chance || chanceFromMultiplier(multiplier));
   selectedUpgraderMultiplier = multiplier;
   $("#upgraderCustomMultiplier").value = multiplier.toFixed(multiplier >= 100 ? 2 : 4).replace(/\.?0+$/, "");
   $("#upgraderCustomChance").value = chance.toFixed(2).replace(/\.?0+$/, "");
+  syncUpgraderPresets(multiplier);
   updateUpgraderQuote();
 }
 
@@ -1048,15 +1053,10 @@ function scheduleSaveUpgraderSettings() {
 
 function bindUpgrader() {
   $("#upgraderBet").addEventListener("input", updateUpgraderQuote);
-  $("#upgraderCustomChance").addEventListener("input", () => {
-    const chance = Math.min(75, Math.max(0.01, Number($("#upgraderCustomChance").value || 1)));
-    $("#upgraderCustomMultiplier").value = multiplierFromChance(chance).toFixed(4).replace(/\.?0+$/, "");
-    updateUpgraderQuote();
-    scheduleSaveUpgraderSettings();
-  });
   $("#upgraderCustomMultiplier").addEventListener("input", () => {
     const multiplier = Math.max(1.28, Number($("#upgraderCustomMultiplier").value || 1.28));
     $("#upgraderCustomChance").value = chanceFromMultiplier(multiplier).toFixed(2).replace(/\.?0+$/, "");
+    syncUpgraderPresets(multiplier);
     updateUpgraderQuote();
     scheduleSaveUpgraderSettings();
   });
@@ -1066,8 +1066,7 @@ function bindUpgrader() {
       const multiplier = Number(button.dataset.multiplier);
       $("#upgraderCustomMultiplier").value = String(multiplier);
       $("#upgraderCustomChance").value = chanceFromMultiplier(multiplier).toFixed(2).replace(/\.?0+$/, "");
-      $$("#upgraderMultipliers button").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
+      syncUpgraderPresets(multiplier);
       updateUpgraderQuote();
       scheduleSaveUpgraderSettings();
     });

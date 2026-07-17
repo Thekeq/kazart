@@ -107,22 +107,21 @@
         </div>
       </div>
       <div class="control-grid upgrade-controls">
+        <input id="upgraderCustomChance" type="hidden" value="64">
         <label><span data-i18n="common.bet">Ставка</span><div class="bet-field"><button type="button" class="bet-step" data-bet-step="half" data-bet-target="upgraderBet">½</button><input id="upgraderBet" type="number" inputmode="numeric" min="1" value="25"><button type="button" class="bet-step" data-bet-step="double" data-bet-target="upgraderBet">2×</button></div></label>
-        <label><span data-i18n="upgrader.customChance">Шанс %</span><input id="upgraderCustomChance" type="number" inputmode="decimal" min="0.01" max="75" step="0.01" value="64"></label>
         <label><span data-i18n="upgrader.customMultiplier">Икс</span><input id="upgraderCustomMultiplier" type="number" inputmode="decimal" min="1.28" step="0.01" value="1.5"></label>
-        <div>
-          <span class="label" data-i18n="upgrader.presets">Пресеты</span>
-          <div class="segmented" id="upgraderMultipliers">
-            {% for multiplier in upgrader_multipliers %}
-            <button type="button" class="{{ 'active' if loop.first else '' }}" data-multiplier="{{ multiplier }}">x{{ multiplier }}</button>
-            {% endfor %}
-          </div>
-        </div>
         <div>
           <span class="label" data-i18n="upgrader.animation">Анимация</span>
           <div class="segmented speed-tabs" id="upgraderSpeed">
             <button type="button" class="active" data-speed="slow" data-i18n="upgrader.slow">Медленно</button>
             <button type="button" data-speed="fast" data-i18n="upgrader.fast">Быстро</button>
+          </div>
+        </div>
+        <div class="upgrader-presets-block">
+          <div class="segmented upgrader-presets" id="upgraderMultipliers">
+            {% for multiplier in upgrader_multipliers %}
+            <button type="button" class="{{ 'active' if loop.first else '' }}" data-multiplier="{{ multiplier }}">x{{ '%g'|format(multiplier) }}</button>
+            {% endfor %}
           </div>
         </div>
       </div>
